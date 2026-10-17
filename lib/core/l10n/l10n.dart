@@ -45,6 +45,33 @@ class L10n {
   String get delete => _t('Delete', '删除');
   String get edit => _t('Edit', '编辑');
   String get add => _t('Add', '添加');
+  String get importInstance => _t('Import instance', '导入实例');
+  String get importCollection => _t('Import collection', '导入实例集合');
+  String get importInstanceHint => _t('Paste an uptimekuma:// link', '粘贴 uptimekuma:// 链接');
+  String get importCollectionHint =>
+      _t('Paste a collection link to add several at once', '粘贴集合链接，一次导入多个实例');
+  String get importHint => _t(
+        'Paste one or more uptimekuma:// links, one per line. Credentials are '
+            'never included, so management instances ask for a password again.',
+        '粘贴一条或多条 uptimekuma:// 链接，每行一条。导出不含任何凭据，管理模式实例导入后需重新登录。',
+      );
+  String get importAction => _t('Import', '导入');
+  String get importInvalid => _t('Nothing importable in that text', '这段内容里没有可导入的配置');
+  String importedCount(int n) => _t('Imported $n instance(s)', '已导入 $n 个实例');
+  String get exportConfig => _t('Export config', '导出配置');
+  String get exportCollection => _t('Export collection', '导出集合');
+  String get exportedToClipboard => _t('Copied to clipboard', '已复制到剪贴板');
+  String get joinCollection => _t('Join a collection', '加入集合');
+  String get leaveCollection => _t('Leave collection', '移出集合');
+  String get collection => _t('Collection', '集合');
+  String get collectionName => _t('Collection name', '集合名称');
+  String get collectionHint => _t(
+        'Instances in the same collection share one status page on the phone, '
+            'in list order. Nothing changes on the server.',
+        '同一集合的实例会在手机上合并成一个状态页，按列表顺序排列。不会影响服务器端。',
+      );
+  String collectionMembers(int n) => _t('$n instances · merged', '$n 个实例 · 已合并');
+  String mergedInstances(int n) => _t('$n instances merged', '$n 个实例已合并');
   String get done => _t('Done', '完成');
   String get close => _t('Close', '关闭');
   String get refresh => _t('Refresh', '刷新');
@@ -211,6 +238,20 @@ class L10n {
   String get alertDetail => _t('Include error detail and start time', '包含故障信息与开始时间');
 
   String get cacheSize => _t('Cache size', '缓存占用');
+  String get cacheSnapshots => _t('Status snapshots', '状态快照');
+  String get cacheSnapshotsBody => _t(
+        'The last response of every instance, so the dashboard opens with data '
+            'instead of a spinner. Clearing it only costs one refresh.',
+        '每个实例最近一次的状态数据，用于冷启动时直接出内容。清理后只会重新拉取一次。',
+      );
+  String get cacheImages => _t('Downloaded logos', '状态页图标');
+  String get cacheImagesBody => _t(
+        'Icons published by each status page. They are kept on disk so switching '
+            'instances shows the logo immediately instead of waiting for the network.',
+        '各状态页发布的图标，保存在本地磁盘上，切换实例时立即显示而不是等网络。',
+      );
+  String get clear => _t('Clear', '清理');
+  String filesCount(int n) => _t('$n files', '$n 个文件');
   String get clearCache => _t('Clear cache', '清理缓存');
   String get clearCacheConfirm => _t(
         'Cached status pages and heartbeat data will be removed. Settings are kept.',
@@ -444,8 +485,8 @@ class L10n {
         '支持 ?name= 的 JSON 接口地址与端口，留空则使用默认服务。',
       );
   String get dohEndpointHint => _t(
-        'https://dns.example.com:8443/dns-query',
-        'https://dns.example.com:8443/dns-query',
+        'https://doh.zakoflare.com/dns-query',
+        'https://doh.zakoflare.com/dns-query',
       );
   String get privacyUaTitle => _t('Custom User-Agent', '自定义 UA');
   String get privacyUaBody => _t(
@@ -454,11 +495,53 @@ class L10n {
       );
   String get privacyUaHint => _t('Leave empty to use the default', '留空则使用默认值');
   String get resetDefault => _t('Reset', '重置');
+  String get switchInstance => _t('Switch instance', '切换实例');
   String get privacyDataNote => _t(
         'Credentials, caches and settings never leave the device.',
         '凭据、缓存与设置都不会离开本机。',
       );
   String get nameClampTitle => _t('Collapse long monitor names', '折叠过长监控名');
+  String get statusColorsTitle => _t('Status colours', '状态色');
+  String get statusColorsBody => _t(
+        'These two drive the dot, heartbeat strip, latency line and badges on '
+            'every monitor row.',
+        '这两色会应用到每条监控的状态点、心跳条、延迟线与徽标。',
+      );
+  String get statusColorUp => _t('Up / healthy', '正常');
+  String get statusColorDown => _t('Down / fault', '故障');
+  String get statusColorReset => _t('Use the default palette', '使用默认配色');
+  String get uiEffectsTitle => _t('UI effects', '界面效果');
+  String get headerSectionTitle => _t('Dashboard header', '首页头部');
+  String get headerFull => _t('Full', '完整版');
+  String get headerCompact => _t('Compact', '简略版');
+  String get headerLayoutBody => _t(
+        'Full keeps the counter pills, compact keeps only the status line.',
+        '完整版保留四个计数卡片，简略版只留一行状态。',
+      );
+  String get headerGlassTitle => _t('Header frosted glass', '头部毛玻璃');
+  String get headerGlassBody => _t(
+        'Lets the photo show through the header. Follows the interface opacity '
+            'slider below; off keeps the header solid.',
+        '头部半透明并透出背景图，透明度由下面的"界面不透明度"控制；关闭则保持实心。',
+      );
+  String get glassTitle => _t('Frosted glass', '毛玻璃');
+  String get glassBody => _t(
+        'Cards blur what is behind them and turn translucent. Only the interface '
+            'is affected — the background photo keeps its own opacity.',
+        '卡片对身后的内容做模糊并半透明。只影响界面，背景图仍使用自己的不透明度。',
+      );
+  String get uiOpacityTitle => _t('Interface opacity', '界面不透明度');
+  String get uiOpacityBody => _t(
+        'How solid cards, sheets and panels are. Lower values let more of the '
+            'background through.',
+        '卡片、弹层与面板的实心程度，数值越低背景透出越多。',
+      );
+  String get flatTitle => _t('Solid colours (no gradients)', '纯色（取消渐变）');
+  String get flatBody => _t(
+        'Turns the header fade and its glow into one flat accent colour, and '
+            'drops the large drop shadow. Switches keep working the same way.',
+        '把首页头部的渐变和光晕换成单色，并去掉大阴影，其余交互不变。',
+      );
   String get showSlaTitle => _t('Show SLA / uptime %', '显示 SLA / 可用率');
   String get showSlaBody => _t(
         'Shows the 24h uptime percentage on every monitor row and the '
@@ -493,6 +576,11 @@ class L10n {
       );
   String get iconApplying => _t('Applying…', '应用中…');
   String get iconDownloadFailed => _t('Could not download that image', '该图片无法下载');
+  String get iconPresetOnly => _t(
+        'Only these four icons are available: Android does not allow an app to '
+            'swap its launcher icon for a custom image at runtime.',
+        '仅提供这四套图标：Android 不允许应用在运行时把桌面图标换成自定义图片。',
+      );
   String get iconPinStarted => _t('Confirm the shortcut on your launcher', '请在桌面确认添加');
   String get soundUpload => _t('Upload tone', '上传提示音');
   String get soundUploadHint => _t('wav / mp3 / ogg / m4a / aac / flac', 'wav / mp3 / ogg / m4a / aac / flac');

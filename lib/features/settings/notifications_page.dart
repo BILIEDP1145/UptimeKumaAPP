@@ -108,7 +108,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final l = L10n.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(l.settingsNotifications)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(tk.pagePadding.left, 4, tk.pagePadding.right, 28),

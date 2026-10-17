@@ -57,6 +57,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.muted,
     required this.textStrong,
     required this.tabular,
+    this.flat = false,
+    this.glass = false,
+    this.uiOpacity = 1.0,
   });
 
   final UiStyle style;
@@ -101,6 +104,24 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color textStrong;
   final List<FontFeature> tabular;
 
+  /// When true the theme drops decorative gradients and large shadows: the
+  /// header becomes one flat colour instead of a two-stop blue fade. Widgets
+  /// read [headerFrom]/[headerTo] as usual, so nothing else branches on it.
+  final bool flat;
+
+  /// Frosted-glass surfaces: cards blur whatever sits behind them. UI only —
+  /// the photo itself is never blurred by this.
+  final bool glass;
+
+  /// Multiplier for card surface opacity (0.5–1.0). Only the UI reacts; the
+  /// background image keeps its own opacity setting.
+  final double uiOpacity;
+
+  /// Effective card fill opacity, already accounting for [glass]. Glass never
+  /// drops below 0.35 or text stops being legible against a photo.
+  double get cardOpacity =>
+      glass ? (uiOpacity * 0.55).clamp(0.35, 0.8) : uiOpacity * 0.96;
+
   static AppTokens of(BuildContext context) {
     final t = Theme.of(context).extension<AppTokens>();
     assert(t != null, 'AppTokens missing from ThemeData.extensions');
@@ -112,12 +133,17 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required UiStyle style,
     required Color accent,
     required Brightness brightness,
+    bool flatGradients = false,
+    bool glass = false,
+    double uiOpacity = 1.0,
+    Color? statusUpColor,
+    Color? statusDownColor,
   }) {
     final dark = brightness == Brightness.dark;
     final sharp = style.isSharp;
 
-    final up = dark ? const Color(0xFF34D399) : const Color(0xFF15A66A);
-    final down = dark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+    final up = statusUpColor ?? (dark ? const Color(0xFF34D399) : const Color(0xFF15A66A));
+    final down = statusDownColor ?? (dark ? const Color(0xFFF87171) : const Color(0xFFDC2626));
     final pending = dark ? const Color(0xFFFBBF24) : const Color(0xFFC2760A);
     final maint = dark ? const Color(0xFF60A5FA) : const Color(0xFF1D6FE0);
     final unknown = dark ? const Color(0xFF8794A9) : const Color(0xFF7C8899);
@@ -168,13 +194,20 @@ class AppTokens extends ThemeExtension<AppTokens> {
       accentSoft: accent.withValues(alpha: dark ? 0.22 : 0.10),
       accentInk: dark ? Color.alphaBlend(accent.withValues(alpha: 0.55), Colors.white) : accent,
       headerFrom: accent,
-      headerTo: Color.alphaBlend(
-        accent.withValues(alpha: dark ? 0.52 : 0.62),
-        dark ? const Color(0xFF05090F) : const Color(0xFF081326),
-      ),
+      // A flat theme repeats the accent, which turns every `LinearGradient`
+      // built from these two stops into a solid fill.
+      headerTo: flatGradients
+          ? accent
+          : Color.alphaBlend(
+              accent.withValues(alpha: dark ? 0.52 : 0.62),
+              dark ? const Color(0xFF05090F) : const Color(0xFF081326),
+            ),
       muted: dark ? const Color(0xFF93A1B8) : const Color(0xFF69778C),
       textStrong: dark ? const Color(0xFFE9EFFA) : const Color(0xFF101827),
       tabular: const [FontFeature.tabularFigures()],
+      flat: flatGradients,
+      glass: glass,
+      uiOpacity: uiOpacity.clamp(0.4, 1.0),
     );
   }
 

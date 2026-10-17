@@ -28,7 +28,9 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tk = context.tk;
     final radius = BorderRadius.circular(tk.radiusMd);
-    final surface = color ?? tk.surfaceCard.withValues(alpha: 0.96);
+    // `cardOpacity` already accounts for the frosted-glass mode, so a glass card
+    // is simply a more transparent fill over a blurred backdrop.
+    final surface = color ?? tk.surfaceCard.withValues(alpha: tk.cardOpacity);
 
     Widget content = Padding(
       padding: padding ?? tk.cardPadding,
@@ -47,26 +49,37 @@ class AppCard extends StatelessWidget {
       );
     }
 
-    return Container(
-      margin: margin,
+    final body = Material(
+      color: Colors.transparent,
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              child: content,
+            ),
+    );
+
+    final card = Container(
       decoration: BoxDecoration(
         color: surface,
         borderRadius: radius,
         border: Border.all(color: borderColor ?? tk.cardBorder),
-        boxShadow: tk.cardShadow,
+        // A glass card sits on a blurred backdrop; a drop shadow behind the
+        // blur just muddies it.
+        boxShadow: tk.glass ? const <BoxShadow>[] : tk.cardShadow,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: radius,
-        clipBehavior: Clip.antiAlias,
-        child: onTap == null
-            ? content
-            : InkWell(
-                onTap: onTap,
-                child: content,
-              ),
-      ),
+      // No BackdropFilter on purpose: a per-card real-time blur re-samples the
+      // backdrop on every scroll frame, which both costs frames and visibly
+      // drops out while the list is being dragged. The photo behind the shell is
+      // already blurred, so a translucent fill reads as frosted glass and stays
+      // stable.
+      child: body,
     );
+
+    if (margin == null) return card;
+    return Padding(padding: margin!, child: card);
   }
 }
 

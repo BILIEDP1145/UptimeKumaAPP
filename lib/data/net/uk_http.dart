@@ -114,6 +114,33 @@ class UkHttp {
 
   static const String defaultUserAgent = 'UptimeKumaMobile/1.1 (Flutter; Android)';
 
+  /// Long-lived clients keyed by the settings that affect them. Reusing the
+  /// connection pool avoids a full TLS handshake for every small request (an
+  /// instance logo is a few KB; the handshake dominated the wait).
+  static final Map<String, http.Client> _shared = {};
+
+  static http.Client shared({
+    required bool doh,
+    String? userAgent,
+    String? dohEndpoint,
+  }) {
+    final key = '$doh|${userAgent ?? ''}|${dohEndpoint ?? ''}';
+    return _shared.putIfAbsent(
+      key,
+      () => build(doh: doh, userAgent: userAgent, dohEndpoint: dohEndpoint),
+    );
+  }
+
+  /// Drops every pooled client — call it when DoH / UA settings change.
+  static void resetShared() {
+    for (final client in _shared.values) {
+      try {
+        client.close();
+      } catch (_) {}
+    }
+    _shared.clear();
+  }
+
   static http.Client build({
     required bool doh,
     String? userAgent,

@@ -130,7 +130,7 @@ class _MonitorEditPageState extends State<MonitorEditPage> {
     final groups = admin.groups.where((g) => g.id != _draft.id).toList();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_draft.isNew ? l.manageAddMonitor : l.manageEditMonitor),
         actions: [

@@ -289,7 +289,7 @@ class UkAdmin {
           final id = args[0].toString();
           final period = args[1].toString();
           final value = args[2];
-          if (value is num) _uptime['${id}_$period'] = value.toDouble() / 100;
+          if (value is num) _uptime['${id}_$period'] = value.toDouble();
         }
       case 'notificationList':
         // `notificationList` is a plain array, `statusPageList` is keyed by id —

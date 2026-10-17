@@ -41,7 +41,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
     final l = L10n.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(l.settingsPrivacy)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
@@ -125,7 +125,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     keyboardType: TextInputType.url,
                     onChanged: app.setDohUrl,
                     decoration: InputDecoration(
-                      hintText: DohResolver.defaults.first,
+                      hintText: l.dohEndpointHint,
                       helperText: l.dohEndpointHint,
                       helperMaxLines: 2,
                     ),

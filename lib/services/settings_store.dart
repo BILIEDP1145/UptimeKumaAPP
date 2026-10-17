@@ -29,6 +29,13 @@ class PrefKeys {
   static const userAgent = 'custom_user_agent';
   static const nameClamp = 'name_clamp';
   static const showSla = 'show_sla';
+  static const flatGradients = 'flat_gradients';
+  static const statusUpColor = 'status_up_color';
+  static const statusDownColor = 'status_down_color';
+  static const uiOpacity = 'ui_opacity';
+  static const glass = 'ui_glass';
+  static const headerCompact = 'header_compact';
+  static const headerGlass = 'header_glass';
   static const nameClampChars = 'name_clamp_chars';
   static const guideDone = 'guide_done';
 }
@@ -170,6 +177,42 @@ class SettingsStore {
   bool get showSla => _prefs.getBool(PrefKeys.showSla) ?? false;
 
   set showSla(bool v) => _prefs.setBool(PrefKeys.showSla, v);
+
+  /// Drops decorative gradients (the header fade) in favour of solid colours.
+  bool get flatGradients => _prefs.getBool(PrefKeys.flatGradients) ?? false;
+
+  set flatGradients(bool v) => _prefs.setBool(PrefKeys.flatGradients, v);
+
+  /// ARGB overrides for the two states that carry meaning on every row.
+  int? get statusUpColor => _prefs.getInt(PrefKeys.statusUpColor);
+
+  set statusUpColor(int? v) =>
+      v == null ? _prefs.remove(PrefKeys.statusUpColor) : _prefs.setInt(PrefKeys.statusUpColor, v);
+
+  int? get statusDownColor => _prefs.getInt(PrefKeys.statusDownColor);
+
+  set statusDownColor(int? v) => v == null
+      ? _prefs.remove(PrefKeys.statusDownColor)
+      : _prefs.setInt(PrefKeys.statusDownColor, v);
+
+  /// 0.4 – 1.0 multiplier for card surfaces (UI only, not the photo).
+  double get uiOpacity => _prefs.getDouble(PrefKeys.uiOpacity) ?? 1.0;
+
+  set uiOpacity(double v) => _prefs.setDouble(PrefKeys.uiOpacity, v);
+
+  bool get glass => _prefs.getBool(PrefKeys.glass) ?? false;
+
+  set glass(bool v) => _prefs.setBool(PrefKeys.glass, v);
+
+  /// Compact header: name + one status line, no stat pills.
+  bool get headerCompact => _prefs.getBool(PrefKeys.headerCompact) ?? false;
+
+  set headerCompact(bool v) => _prefs.setBool(PrefKeys.headerCompact, v);
+
+  /// Header-only frosted glass (independent from the card switch).
+  bool get headerGlass => _prefs.getBool(PrefKeys.headerGlass) ?? false;
+
+  set headerGlass(bool v) => _prefs.setBool(PrefKeys.headerGlass, v);
 
   bool get nameClamp => _prefs.getBool(PrefKeys.nameClamp) ?? true;
 

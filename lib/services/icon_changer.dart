@@ -5,9 +5,8 @@ import 'package:flutter/services.dart';
 /// Switches the Android launcher icon at runtime.
 ///
 /// Built-in icons are `activity-alias` components: toggling them re-points the
-/// launcher without reinstalling. A user-supplied image cannot replace the
-/// installed bitmap (Android bakes `android:icon` into the APK), so it is
-/// published as a home-screen shortcut carrying that exact bitmap instead.
+/// launcher without reinstalling. Android cannot replace the launcher icon of
+/// an installed package with a runtime bitmap, so user uploads are not offered.
 class IconChanger {
   IconChanger._();
 
@@ -49,48 +48,6 @@ class IconChanger {
     }
   }
 
-  /// Pins a shortcut whose icon is [imagePath]. Returns true when the launcher
-  /// accepted the request (the user still has to confirm).
-  static Future<bool> pinCustom(String imagePath) async {
-    if (!supported) return false;
-    if (!File(imagePath).existsSync()) return false;
-    try {
-      final ok = await _channel.invokeMethod<bool>('pinIcon', {'path': imagePath});
-      return ok ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
-
-  /// Restores the default recents-card icon.
-  static Future<void> clearTaskIcon() async {
-    if (!supported) return;
-    try {
-      await _channel.invokeMethod<void>('clearTaskIcon');
-    } on PlatformException {
-      // ignore
-    } on MissingPluginException {
-      // ignore
-    }
-  }
-
-  /// Swaps the recents-card icon. This is the one system-drawn surface that can
-  /// take a runtime bitmap, so a custom icon is visible even when the launcher
-  /// refuses to pin shortcuts.
-  static Future<bool> applyTaskIcon(String imagePath) async {
-    if (!supported) return false;
-    if (!File(imagePath).existsSync()) return false;
-    try {
-      final ok = await _channel.invokeMethod<bool>('setTaskIcon', {'path': imagePath});
-      return ok ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
 }
 
 class IconVariant {

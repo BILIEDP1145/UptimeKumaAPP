@@ -229,7 +229,7 @@ class _ServerEditPageState extends State<ServerEditPage> {
     final isManage = _mode == ServerMode.manage;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEdit ? l.editInstance : l.addInstance),
       ),

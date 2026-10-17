@@ -39,76 +39,38 @@ extension MonitorStatusUi on MonitorStatus {
 }
 
 class StatusDot extends StatelessWidget {
-  const StatusDot({super.key, required this.status, this.size = 8, this.pulse = false});
+  const StatusDot({super.key, required this.status, this.size = 8});
 
   final MonitorStatus status;
   final double size;
-  final bool pulse;
 
   @override
   Widget build(BuildContext context) {
     final tk = context.tk;
     final color = status.color(tk);
-    final dot = Container(
+    final isDown = status == MonitorStatus.down;
+
+    // Deliberately never animates or changes size. The previous "pulse" ring
+    // grew the dot from 8 to 22 px every frame, which shifted the whole row and
+    // read as jitter. A static halo marks an outage without moving anything.
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: status == MonitorStatus.down
-            ? [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: size, spreadRadius: 1)]
-            : null,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: isDown
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.38),
+                    blurRadius: size * 1.7,
+                    spreadRadius: 0.5,
+                  ),
+                ]
+              : null,
+        ),
       ),
-    );
-    if (!pulse) return dot;
-    return _Pulsing(color: color, child: dot);
-  }
-}
-
-class _Pulsing extends StatefulWidget {
-  const _Pulsing({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  State<_Pulsing> createState() => _PulsingState();
-}
-
-class _PulsingState extends State<_Pulsing> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, child) {
-        final t = _c.value;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 8 + 14 * t,
-              height: 8 + 14 * t,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: widget.color.withValues(alpha: (1 - t) * 0.35),
-              ),
-            ),
-            child!,
-          ],
-        );
-      },
-      child: widget.child,
     );
   }
 }

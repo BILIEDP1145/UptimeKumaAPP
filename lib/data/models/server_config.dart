@@ -24,6 +24,8 @@ class ServerConfig {
     this.username = '',
     this.token = '',
     this.colorTag = 'terminal',
+    this.collectionId,
+    this.collectionName,
   });
 
   final String id;
@@ -48,6 +50,16 @@ class ServerConfig {
 
   /// Accent palette id used as a per-instance visual tag.
   final String colorTag;
+
+  /// Instances sharing this id are shown as one merged status page on the
+  /// phone. It is app-local bookkeeping — nothing is written to the server, so
+  /// the web UI never notices.
+  final String? collectionId;
+
+  /// Display name of that collection, stored on every member for redundancy.
+  final String? collectionName;
+
+  bool get inCollection => collectionId != null && collectionId!.isNotEmpty;
 
   bool get isManage => mode == ServerMode.manage;
 
@@ -88,6 +100,9 @@ class ServerConfig {
     String? username,
     String? token,
     String? colorTag,
+    String? collectionId,
+    String? collectionName,
+    bool clearCollection = false,
   }) {
     return ServerConfig(
       id: id,
@@ -99,6 +114,8 @@ class ServerConfig {
       username: username ?? this.username,
       token: token ?? this.token,
       colorTag: colorTag ?? this.colorTag,
+      collectionId: clearCollection ? null : (collectionId ?? this.collectionId),
+      collectionName: clearCollection ? null : (collectionName ?? this.collectionName),
     );
   }
 
@@ -112,6 +129,8 @@ class ServerConfig {
         'username': username,
         'token': token,
         'colorTag': colorTag,
+        if (collectionId != null) 'collectionId': collectionId,
+        if (collectionName != null) 'collectionName': collectionName,
       };
 
   factory ServerConfig.fromJson(Map<String, dynamic> json) => ServerConfig(
@@ -124,6 +143,8 @@ class ServerConfig {
         username: (json['username'] as String?) ?? '',
         token: (json['token'] as String?) ?? '',
         colorTag: (json['colorTag'] as String?) ?? 'terminal',
+        collectionId: json['collectionId'] as String?,
+        collectionName: json['collectionName'] as String?,
       );
 
   /// Accepts a bare origin, an origin with a path, or a full

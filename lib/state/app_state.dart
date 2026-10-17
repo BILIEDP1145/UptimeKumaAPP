@@ -7,6 +7,7 @@ import '../core/theme/app_tokens.dart';
 import '../core/theme/palettes.dart';
 import '../data/cache/cache_store.dart';
 import '../data/models/server_config.dart';
+import '../data/models/share_code.dart';
 import '../services/settings_store.dart';
 import '../services/sound_library.dart';
 
@@ -45,6 +46,13 @@ class AppState extends ChangeNotifier {
   String _userAgent = '';
   bool _nameClamp = true;
   bool _showSla = false;
+  bool _flatGradients = false;
+  Color? _statusUpColor;
+  Color? _statusDownColor;
+  double _uiOpacity = 1.0;
+  bool _glass = false;
+  bool _headerCompact = false;
+  bool _headerGlass = false;
   int _nameClampChars = 18;
 
   // Read accessors ---------------------------------------------------------
@@ -74,6 +82,23 @@ class AppState extends ChangeNotifier {
   String get userAgent => _userAgent;
   bool get nameClamp => _nameClamp;
   bool get showSla => _showSla;
+  bool get flatGradients => _flatGradients;
+
+  /// Optional overrides for the "up" / "down" colours; null means theme default.
+  Color? get statusUpColor => _statusUpColor;
+  Color? get statusDownColor => _statusDownColor;
+
+  /// Card surface opacity multiplier (UI only).
+  double get uiOpacity => _uiOpacity;
+
+  /// Frosted-glass cards.
+  bool get glass => _glass;
+
+  /// Compact dashboard header (no stat pills).
+  bool get headerCompact => _headerCompact;
+
+  /// Frosted glass for the dashboard header only.
+  bool get headerGlass => _headerGlass;
   int get nameClampChars => _nameClampChars;
   int get pollSeconds => _pollSeconds;
   List<ServerConfig> get servers => List.unmodifiable(_servers);
@@ -135,6 +160,15 @@ class AppState extends ChangeNotifier {
     _userAgent = _store.userAgent ?? '';
     _nameClamp = _store.nameClamp;
     _showSla = _store.showSla;
+    _flatGradients = _store.flatGradients;
+    final up = _store.statusUpColor;
+    final down = _store.statusDownColor;
+    _statusUpColor = up == null ? null : Color(up);
+    _statusDownColor = down == null ? null : Color(down);
+    _uiOpacity = _store.uiOpacity;
+    _glass = _store.glass;
+    _headerCompact = _store.headerCompact;
+    _headerGlass = _store.headerGlass;
     _nameClampChars = _store.nameClampChars;
 
     final list = ServerConfig.decodeList(_store.serversJson);
@@ -262,6 +296,48 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setStatusUpColor(Color? c) {
+    _statusUpColor = c;
+    _store.statusUpColor = c?.toARGB32();
+    notifyListeners();
+  }
+
+  void setStatusDownColor(Color? c) {
+    _statusDownColor = c;
+    _store.statusDownColor = c?.toARGB32();
+    notifyListeners();
+  }
+
+  void setUiOpacity(double v) {
+    _uiOpacity = v.clamp(0.4, 1.0);
+    _store.uiOpacity = _uiOpacity;
+    notifyListeners();
+  }
+
+  void setHeaderCompact(bool v) {
+    _headerCompact = v;
+    _store.headerCompact = v;
+    notifyListeners();
+  }
+
+  void setHeaderGlass(bool v) {
+    _headerGlass = v;
+    _store.headerGlass = v;
+    notifyListeners();
+  }
+
+  void setGlass(bool v) {
+    _glass = v;
+    _store.glass = v;
+    notifyListeners();
+  }
+
+  void setFlatGradients(bool v) {
+    _flatGradients = v;
+    _store.flatGradients = v;
+    notifyListeners();
+  }
+
   void setShowSla(bool v) {
     _showSla = v;
     _store.showSla = v;
@@ -319,6 +395,114 @@ class AppState extends ChangeNotifier {
     _activeServerId = id;
     _store.activeServerId = id;
     notifyListeners();
+  }
+
+  // Collections ------------------------------------------------------------
+  //
+  // A collection is app-local only: instances that share a collectionId are
+  // merged into one status page on the phone, in list order. Nothing is sent to
+  // the servers, so the published web page is untouched.
+
+  /// Members of [collectionId], in the order they appear in the instance list.
+  List<ServerConfig> serversInCollection(String? collectionId) {
+    if (collectionId == null) return const [];
+    return _servers.where((s) => s.collectionId == collectionId).toList(growable: false);
+  }
+
+  /// Every distinct collection, ordered by the position of its first member.
+  List<({String id, String name, List<ServerConfig> servers})> get collections {
+    final order = <String>[];
+    final byId = <String, List<ServerConfig>>{};
+    for (final server in _servers) {
+      final id = server.collectionId;
+      if (id == null || id.isEmpty) continue;
+      if (!byId.containsKey(id)) {
+        byId[id] = [];
+        order.add(id);
+      }
+      byId[id]!.add(server);
+    }
+    return [
+      for (final id in order)
+        (
+          id: id,
+          name: byId[id]!.first.collectionName ?? 'Collection',
+          servers: byId[id]!,
+        ),
+    ];
+  }
+
+  /// Joins [serverId] to a collection, creating one when [collectionName] is a
+  /// name that does not exist yet.
+  Future<void> joinCollection(String serverId, String collectionName) async {
+    final name = collectionName.trim();
+    if (name.isEmpty) return;
+    final existing = collections.where((c) => c.name == name).toList();
+    final id = existing.isEmpty
+        ? 'col_${DateTime.now().millisecondsSinceEpoch}'
+        : existing.first.id;
+    _servers = _servers
+        .map((s) => s.id == serverId
+            ? s.copyWith(collectionId: id, collectionName: name)
+            : s)
+        .toList();
+    _persistServers();
+    notifyListeners();
+  }
+
+  /// Puts [serverIds] into one collection in a single step (used when merging
+  /// from the instance list).
+  Future<void> mergeIntoCollection(
+    List<String> serverIds,
+    String collectionName,
+  ) async {
+    final name = collectionName.trim();
+    if (name.isEmpty || serverIds.isEmpty) return;
+    final existing = collections.where((c) => c.name == name).toList();
+    final id = existing.isEmpty
+        ? 'col_${DateTime.now().millisecondsSinceEpoch}'
+        : existing.first.id;
+    _servers = _servers
+        .map((s) => serverIds.contains(s.id)
+            ? s.copyWith(collectionId: id, collectionName: name)
+            : s)
+        .toList();
+    _persistServers();
+    notifyListeners();
+  }
+
+  Future<void> leaveCollection(String serverId) async {
+    _servers = _servers
+        .map((s) => s.id == serverId ? s.copyWith(clearCollection: true) : s)
+        .toList();
+    _persistServers();
+    notifyListeners();
+  }
+
+  /// Imports decoded share strings. Returns how many instances were added.
+  Future<int> importPayloads(List<SharePayload> payloads) async {
+    var added = 0;
+    for (final payload in payloads) {
+      final collectionId = payload.isCollection
+          ? 'col_${DateTime.now().millisecondsSinceEpoch}_$added'
+          : null;
+      for (final server in payload.servers) {
+        final withCollection = payload.isCollection
+            ? server.copyWith(
+                collectionId: collectionId,
+                collectionName: payload.collectionName,
+              )
+            : server;
+        _servers = [..._servers, withCollection];
+        added++;
+      }
+    }
+    if (added == 0) return 0;
+    _activeServerId ??= _servers.first.id;
+    _persistServers();
+    _store.activeServerId = _activeServerId;
+    notifyListeners();
+    return added;
   }
 
   /// Copies a user-picked image into app storage so it survives cache wipes

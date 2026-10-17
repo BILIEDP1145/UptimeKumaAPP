@@ -115,7 +115,7 @@ class _NotificationEditPageState extends State<NotificationEditPage> {
     final l = L10n.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEdit ? l.edit : l.addNotification),
         actions: [

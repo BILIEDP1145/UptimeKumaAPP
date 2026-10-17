@@ -21,6 +21,24 @@ class AppearancePage extends StatefulWidget {
 class _AppearancePageState extends State<AppearancePage> {
   bool _picking = false;
 
+  Future<void> _pickStatusColor({required bool isUp}) async {
+    final app = context.read<AppState>();
+    final choice = await showModalBottomSheet<_ColorChoice>(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      builder: (_) => _ColorSheet(
+        initial: isUp ? app.statusUpColor : app.statusDownColor,
+        title: isUp ? L10n.of(context).statusColorUp : L10n.of(context).statusColorDown,
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (isUp) {
+      app.setStatusUpColor(choice.color);
+    } else {
+      app.setStatusDownColor(choice.color);
+    }
+  }
+
   Future<void> _pickBackground() async {
     final l = L10n.of(context);
     final app = context.read<AppState>();
@@ -54,7 +72,7 @@ class _AppearancePageState extends State<AppearancePage> {
     final l = L10n.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(l.settingsAppearance)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(tk.pagePadding.left, 4, tk.pagePadding.right, 28),
@@ -186,6 +204,31 @@ class _AppearancePageState extends State<AppearancePage> {
           ),
           const SizedBox(height: 12),
 
+          // Flat colours
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(l.flatTitle, style: context.txt.titleSmall),
+                    ),
+                    Switch(
+                      value: app.flatGradients,
+                      onChanged: app.setFlatGradients,
+                    ),
+                  ],
+                ),
+                Text(
+                  l.flatBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Long monitor names
           AppCard(
             child: Column(
@@ -240,6 +283,136 @@ class _AppearancePageState extends State<AppearancePage> {
                 ),
                 Text(
                   l.showSlaBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Status colours + UI effects
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.statusColorsTitle, style: context.txt.titleSmall),
+                const SizedBox(height: 3),
+                Text(
+                  l.statusColorsBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                _ColorRow(
+                  label: l.statusColorUp,
+                  color: app.statusUpColor ?? tk.statusUp,
+                  overridden: app.statusUpColor != null,
+                  onTap: () => _pickStatusColor(isUp: true),
+                ),
+                const SizedBox(height: 8),
+                _ColorRow(
+                  label: l.statusColorDown,
+                  color: app.statusDownColor ?? tk.statusDown,
+                  overridden: app.statusDownColor != null,
+                  onTap: () => _pickStatusColor(isUp: false),
+                ),
+                if (app.statusUpColor != null || app.statusDownColor != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        app.setStatusUpColor(null);
+                        app.setStatusDownColor(null);
+                      },
+                      icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                      label: Text(l.statusColorReset),
+                    ),
+                  ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(l.glassTitle, style: context.txt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: tk.textStrong,
+                      )),
+                    ),
+                    Switch(value: app.glass, onChanged: app.setGlass),
+                  ],
+                ),
+                Text(
+                  l.glassBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  l.uiOpacityTitle,
+                  style: context.txt.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: tk.textStrong,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l.uiOpacityBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+                _SliderRow(
+                  label: '${(app.uiOpacity * 100).round()}%',
+                  value: app.uiOpacity,
+                  min: 0.4,
+                  max: 1.0,
+                  display: '${(app.uiOpacity * 100).round()}%',
+                  onChanged: app.setUiOpacity,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Dashboard header
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.headerSectionTitle, style: context.txt.titleSmall),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text(l.headerFull),
+                      selected: !app.headerCompact,
+                      onSelected: (_) => app.setHeaderCompact(false),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(l.headerCompact),
+                      selected: app.headerCompact,
+                      onSelected: (_) => app.setHeaderCompact(true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l.headerLayoutBody,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.headerGlassTitle,
+                        style: context.txt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: tk.textStrong,
+                        ),
+                      ),
+                    ),
+                    Switch(value: app.headerGlass, onChanged: app.setHeaderGlass),
+                  ],
+                ),
+                Text(
+                  l.headerGlassBody,
                   style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
                 ),
               ],
@@ -627,6 +800,151 @@ class _SliderRow extends StatelessWidget {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+}
+
+/// Result of the colour sheet: `null` means "use the theme default".
+class _ColorChoice {
+  const _ColorChoice(this.color);
+
+  final Color? color;
+}
+
+class _ColorRow extends StatelessWidget {
+  const _ColorRow({
+    required this.label,
+    required this.color,
+    required this.overridden,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool overridden;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tk;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: context.txt.bodySmall?.copyWith(color: tk.textStrong),
+              ),
+            ),
+            if (overridden)
+              Text(
+                'custom',
+                style: context.txt.labelSmall?.copyWith(color: tk.muted, fontSize: 10),
+              ),
+            const SizedBox(width: 8),
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 13),
+                border: Border.all(color: tk.hairline),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorSheet extends StatelessWidget {
+  const _ColorSheet({required this.initial, required this.title});
+
+  final Color? initial;
+  final String title;
+
+  static const List<Color> _swatches = [
+    Color(0xFF15A66A),
+    Color(0xFF34D399),
+    Color(0xFF0D9488),
+    Color(0xFF0EA5E9),
+    Color(0xFF1670F5),
+    Color(0xFF1D6FE0),
+    Color(0xFFC2760A),
+    Color(0xFFE08A00),
+    Color(0xFFDC2626),
+    Color(0xFFE23D3D),
+    Color(0xFFD6459B),
+    Color(0xFF7C5CFC),
+    Color(0xFF5A6B84),
+    Color(0xFF101827),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tk;
+    final l = L10n.of(context);
+    return Container(
+      margin: EdgeInsets.only(
+        left: 12,
+        right: 12,
+        bottom: MediaQuery.viewPaddingOf(context).bottom + 12,
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      decoration: BoxDecoration(
+        color: tk.surfaceCard,
+        borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 20),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: context.txt.titleSmall),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final color in _swatches)
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(_ColorChoice(color)),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: initial?.toARGB32() == color.toARGB32()
+                              ? tk.accent
+                              : tk.hairline,
+                          width: initial?.toARGB32() == color.toARGB32() ? 3 : 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pop(const _ColorChoice(null)),
+                icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                label: Text(l.statusColorReset),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

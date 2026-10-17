@@ -1,14 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:provider/provider.dart';
-
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/widgets/app_card.dart';
-import '../../state/app_state.dart';
 
 /// Version, contact, project link and the signing hash of the installed APK.
 class AboutPage extends StatefulWidget {
@@ -61,12 +56,9 @@ class _AboutPageState extends State<AboutPage> {
   Widget build(BuildContext context) {
     final tk = context.tk;
     final l = L10n.of(context);
-    // A user-supplied icon replaces the bundled artwork here too, so the choice
-    // is visibly in effect inside the app.
-    final customIcon = context.watch<AppState>().customIconPath;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(l.settingsAbout)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
@@ -87,23 +79,14 @@ class _AboutPageState extends State<AboutPage> {
                     boxShadow: tk.cardShadow,
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: (customIcon != null && File(customIcon).existsSync())
-                      ? Image.file(
-                          File(customIcon),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Image.asset(
-                            'assets/images/icon_official.png',
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Image.asset(
-                          'assets/images/icon_official.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: tk.accent,
-                            child: const Icon(Icons.monitor_heart, color: Colors.white),
-                          ),
-                        ),
+                  child: Image.asset(
+                    'assets/images/icon_official.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: tk.accent,
+                      child: const Icon(Icons.monitor_heart, color: Colors.white),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text('Uptime Kuma Mobile', style: context.txt.titleMedium),

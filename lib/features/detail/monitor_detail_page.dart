@@ -32,7 +32,7 @@ class MonitorDetailPage extends StatelessWidget {
 
     if (snap == null) {
       return Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(context.read<AppState>().clampName(monitor.name)),
         ),
@@ -56,7 +56,7 @@ class MonitorDetailPage extends StatelessWidget {
     final downEvents = heartbeats.where((h) => h.status == MonitorStatus.down).length;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(monitor.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),

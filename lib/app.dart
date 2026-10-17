@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import 'core/l10n/l10n.dart';
 import 'core/theme/app_theme.dart';
-import 'core/widgets/app_background.dart';
 import 'data/models/server_config.dart';
 import 'data/net/uk_http.dart';
 import 'data/models/status_page.dart';
@@ -89,12 +88,15 @@ class _UptimeKumaAppState extends State<UptimeKumaApp> {
     if (app.dohEnabled != _lastDoh || app.dohUrl != _lastDohUrl) {
       _lastDoh = app.dohEnabled;
       _lastDohUrl = app.dohUrl;
-      // Answers cached against the old resolver must not leak into the new one.
+      // Answers cached against the old resolver must not leak into the new one,
+      // and pooled connections were opened with the previous settings.
       DohResolver.clearCache();
+      UkHttp.resetShared();
       _status.onNetworkPrefsChanged();
     }
     if (app.userAgent != _lastUa) {
       _lastUa = app.userAgent;
+      UkHttp.resetShared();
       // The UA field reports every keystroke; wait for the user to stop typing
       // before tearing down the HTTP client and refetching.
       _uaDebounce?.cancel();
@@ -141,24 +143,33 @@ class _UptimeKumaAppState extends State<UptimeKumaApp> {
               brightness: Brightness.light,
               palette: app.accent,
               style: app.uiStyle,
+              flatGradients: app.flatGradients,
+              glass: app.glass,
+              uiOpacity: app.uiOpacity,
+              statusUpColor: app.statusUpColor,
+              statusDownColor: app.statusDownColor,
             ),
             darkTheme: AppTheme.build(
               brightness: Brightness.dark,
               palette: app.accent,
               style: app.uiStyle,
+              flatGradients: app.flatGradients,
+              glass: app.glass,
+              uiOpacity: app.uiOpacity,
+              statusUpColor: app.statusUpColor,
+              statusDownColor: app.statusDownColor,
             ),
             themeMode: app.resolvedThemeMode,
             locale: app.localeOverride,
             supportedLocales: L10n.supported,
             localizationsDelegates: L10n.delegates(),
-            builder: (context, child) {
-              return AppBackground(
-                imagePath: app.hasBackground ? app.bgImagePath : null,
-                opacity: app.bgOpacity,
-                blur: app.bgBlur,
-                child: child ?? const SizedBox.shrink(),
-              );
-            },
+            // The photo lives behind the tab shell, not behind every route.
+            // Painting it here meant each push/pop re-composited a full-screen
+            // blur under a transparent page, which is exactly what flickered.
+            builder: (context, child) => ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: child ?? const SizedBox.shrink(),
+            ),
             home: app.servers.isEmpty ? const GuidePage() : const HomeShell(),
           );
         },

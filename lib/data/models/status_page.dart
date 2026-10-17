@@ -281,7 +281,11 @@ class StatusSnapshot {
   double? uptimeOf(int monitorId, int hours) {
     final v = uptime['${monitorId}_$hours'];
     if (v == null) return null;
-    return v.clamp(0.0, 1.0);
+    // Kuma has shipped this both ways: the public status page returns a
+    // fraction (0.9833) while the Socket.IO `uptime` push returns a percentage
+    // (98.33). Normalise here so every producer can pass what it has.
+    final norm = v > 1.5 ? v / 100 : v;
+    return norm.clamp(0.0, 1.0);
   }
 
   double? responseTimeOf(int monitorId) {
@@ -309,6 +313,66 @@ class StatusSnapshot {
     }
     if (upCount == 0 && maintenanceCount == 0) return MonitorStatus.unknown;
     return MonitorStatus.up;
+  }
+
+  /// Flattens several instances into one board, in the given order.
+  ///
+  /// Monitor ids are offset by 10,000,000 per instance so two independent
+  /// servers (whose ids both start at 1) cannot collide in [heartbeats] and
+  /// [uptime]. Group titles are prefixed with the instance label, otherwise two
+  /// "Public service" groups would be indistinguishable.
+  static StatusSnapshot merge(
+    List<({String label, StatusSnapshot snapshot})> parts,
+  ) {
+    if (parts.isEmpty) throw ArgumentError('nothing to merge');
+    if (parts.length == 1) return parts.first.snapshot;
+
+    const stride = 10000000;
+    final groups = <MonitorGroup>[];
+    final heartbeats = <int, List<Heartbeat>>{};
+    final uptime = <String, double>{};
+    var offset = 0;
+
+    for (final part in parts) {
+      final snap = part.snapshot;
+      offset += stride;
+
+      for (final group in snap.groups) {
+        groups.add(MonitorGroup(
+          id: group.id + offset,
+          name: '${part.label} · ${group.name}',
+          monitors: [
+            for (final m in group.monitors)
+              Monitor(
+                id: m.id + offset,
+                name: m.name,
+                type: m.type,
+                sendUrl: m.sendUrl,
+                certExpiryDays: m.certExpiryDays,
+                certValid: m.certValid,
+              ),
+          ],
+        ));
+      }
+
+      snap.heartbeats.forEach((id, list) => heartbeats[id + offset] = list);
+
+      snap.uptime.forEach((key, value) {
+        final sep = key.indexOf('_');
+        if (sep <= 0) return;
+        final id = int.tryParse(key.substring(0, sep));
+        if (id == null) return;
+        uptime['${id + offset}_${key.substring(sep + 1)}'] = value;
+      });
+    }
+
+    return StatusSnapshot(
+      config: parts.first.snapshot.config,
+      groups: groups,
+      heartbeats: heartbeats,
+      uptime: uptime,
+      fetchedAt: DateTime.now(),
+    );
   }
 
   StatusSnapshot copyWith({DateTime? fetchedAt, bool? fromCache}) => StatusSnapshot(

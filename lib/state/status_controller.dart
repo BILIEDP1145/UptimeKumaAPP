@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/l10n/l10n.dart';
 import '../data/api/uk_api.dart';
+import '../data/cache/image_cache.dart';
 import '../data/cache/cache_store.dart';
 import '../data/models/server_config.dart';
 import '../data/models/status_page.dart';
@@ -60,6 +61,10 @@ class StatusController extends ChangeNotifier {
   /// Suppresses alerts for the very first successful load of an instance.
   bool _primed = false;
 
+  /// Instances rendered together. More than one means the active instance is
+  /// part of a collection: their boards are merged, in list order.
+  List<ServerConfig> _members = const [];
+
   StatusSnapshot? get snapshot => _snapshot;
   bool get loading => _loading;
   bool get refreshing => _refreshing;
@@ -68,12 +73,50 @@ class StatusController extends ChangeNotifier {
   ServerConfig? get server => _server;
   bool get hasData => _snapshot != null;
 
+  /// Instances currently on screen (one, unless a collection is active).
+  List<ServerConfig> get members => _members;
+  bool get merged => _members.length > 1;
+
+  /// Collections only merge public pages: a management session belongs to one
+  /// instance and cannot be multiplexed.
+  static List<ServerConfig> _resolveMembers(
+    AppState app,
+    ServerConfig? server,
+  ) {
+    if (server == null) return const [];
+    if (!server.inCollection || server.isManage) return [server];
+    final list = app
+        .serversInCollection(server.collectionId)
+        .where((s) => !s.isManage && s.hasPublicPage)
+        .toList(growable: false);
+    return list.length > 1 ? list : [server];
+  }
+
+  /// Cache is keyed by collection so a merged board survives a cold start.
+  String? get _cacheKey {
+    final server = _server;
+    if (server == null) return null;
+    if (merged) return 'col_${server.collectionId}';
+    return server.id;
+  }
+
   Future<void> attach(ServerConfig? server) async {
     if (server?.id == _server?.id) {
       if (server != null && _snapshot == null) await load(showSpinner: true);
       return;
     }
+    // Hopping between members of the same collection reuses the merged board:
+    // nothing on screen changes, so reloading would only flash the list.
+    if (merged &&
+        server != null &&
+        server.collectionId != null &&
+        server.collectionId == _server?.collectionId) {
+      _server = server;
+      notifyListeners();
+      return;
+    }
     _server = server;
+    _members = _resolveMembers(_app, server);
     _snapshot = null;
     _error = null;
     _primed = false;
@@ -116,7 +159,8 @@ class StatusController extends ChangeNotifier {
     }
 
     if (_snapshot == null) {
-      final cached = await CacheStore.instance.readSnapshot(server.id);
+      final cacheKey = _cacheKey ?? server.id;
+      final cached = await CacheStore.instance.readSnapshot(cacheKey);
       if (cached != null && _snapshot == null) {
         _snapshot = cached;
         _lastSyncAt = cached.fetchedAt;
@@ -130,20 +174,53 @@ class StatusController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final builder = snapshotBuilder;
-      StatusSnapshot? built;
-      if (builder != null) {
-        try {
-          built = await builder(server);
-        } catch (e) {
-          debugPrint('admin snapshot unavailable: $e');
+      final StatusSnapshot fresh;
+      if (merged) {
+        // One board made of every collection member, in list order.
+        final parts = <({String label, StatusSnapshot snapshot})>[];
+        Object? lastError;
+        for (final member in _members) {
+          try {
+            parts.add((
+              label: member.name,
+              snapshot: await _api.fetchSnapshot(member),
+            ));
+          } catch (e) {
+            lastError = e;
+            debugPrint('collection member ${member.name} failed: $e');
+          }
         }
+        if (parts.isEmpty) {
+          throw UkApiException(lastError?.toString() ?? 'No member responded');
+        }
+        fresh = StatusSnapshot.merge(parts);
+      } else {
+        final builder = snapshotBuilder;
+        StatusSnapshot? built;
+        if (builder != null) {
+          try {
+            built = await builder(server);
+          } catch (e) {
+            debugPrint('admin snapshot unavailable: $e');
+          }
+        }
+        fresh = built ?? await _api.fetchSnapshot(server);
       }
-      final fresh = built ?? await _api.fetchSnapshot(server);
       _snapshot = fresh;
       _error = null;
       _lastSyncAt = fresh.fetchedAt;
-      await CacheStore.instance.writeSnapshot(server.id, fresh);
+      await CacheStore.instance.writeSnapshot(_cacheKey ?? server.id, fresh);
+      // Pull the status-page logo down now so the header never waits for it.
+      for (final member in merged ? _members : [server]) {
+        final iconUrl = member.resolveAsset(fresh.config.iconPath);
+        if (iconUrl == null) continue;
+        unawaited(ImageDiskCache.instance.prefetch(
+          iconUrl,
+          doh: _app.dohEnabled,
+          dohEndpoint: _app.dohUrl,
+          userAgent: _app.userAgent,
+        ));
+      }
       _detectTransitions(fresh);
       _loading = false;
       _refreshing = false;

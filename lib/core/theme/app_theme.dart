@@ -9,9 +9,23 @@ class AppTheme {
     required Brightness brightness,
     required AccentPalette palette,
     required UiStyle style,
+    bool flatGradients = false,
+    bool glass = false,
+    double uiOpacity = 1.0,
+    Color? statusUpColor,
+    Color? statusDownColor,
   }) {
     final dark = brightness == Brightness.dark;
-    final tokens = AppTokens.build(style: style, accent: palette.color, brightness: brightness);
+    final tokens = AppTokens.build(
+      style: style,
+      accent: palette.color,
+      brightness: brightness,
+      flatGradients: flatGradients,
+      glass: glass,
+      uiOpacity: uiOpacity,
+      statusUpColor: statusUpColor,
+      statusDownColor: statusDownColor,
+    );
 
     final scheme = ColorScheme.fromSeed(
       seedColor: palette.color,

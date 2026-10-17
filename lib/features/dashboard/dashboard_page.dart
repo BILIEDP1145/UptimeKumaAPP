@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/palettes.dart';
 import '../../core/utils/fmt.dart';
 import '../../core/utils/status_ui.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/remote_icon.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/widgets/heartbeat_bar.dart';
 import '../../data/models/status_page.dart';
 import '../../state/app_state.dart';
@@ -95,7 +96,7 @@ class DashboardPage extends StatelessWidget {
           separatorBuilder: (_, _) => SizedBox(height: tk.cardGap),
           itemBuilder: (context, i) {
             final group = snap.groups[i];
-            return _GroupBlock(group: group, snapshot: snap);
+            return _GroupBlock(key: ValueKey('group_${group.id}'), group: group, snapshot: snap);
           },
         ),
       ),
@@ -135,23 +136,35 @@ class _Header extends StatelessWidget {
       }
     }
 
+    // The header is part of the UI, so it follows the interface-opacity slider.
+    // "Header frosted glass" pushes it further down so the photo shows through.
+    final compact = app.headerCompact;
+    final headerAlpha =
+        (app.uiOpacity * (app.headerGlass ? 0.62 : 1.0)).clamp(0.0, 1.0);
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         tk.pagePadding.left + 2,
-        topPad + (tk.style.isSharp ? 8 : 12),
+        topPad + (tk.style.isSharp ? 8 : (compact ? 8 : 12)),
         tk.pagePadding.right + 2,
-        tk.style.isSharp ? 14 : 20,
+        tk.style.isSharp ? 14 : (compact ? 14 : 20),
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [tk.headerFrom, tk.headerTo],
+          colors: [
+            tk.headerFrom.withValues(alpha: headerAlpha),
+            tk.headerTo.withValues(alpha: headerAlpha),
+          ],
         ),
         borderRadius: tk.style.isSharp
             ? BorderRadius.zero
             : const BorderRadius.vertical(bottom: Radius.circular(26)),
-        boxShadow: tk.style.isSharp
+        border: app.headerGlass
+            ? Border.all(color: Colors.white.withValues(alpha: 0.18))
+            : null,
+        boxShadow: (tk.style.isSharp || tk.flat || headerAlpha < 0.98)
             ? null
             : [
                 BoxShadow(
@@ -166,77 +179,118 @@ class _Header extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 9),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-                ),
-                // The status page publishes its own icon; show it instead of a
-                // generic mark so the instance is recognisable at a glance.
-                child: RemoteIcon(
-                  path: server?.resolveAsset(ctl.snapshot?.config.iconPath),
-                  size: 24,
-                  fallback: const Icon(
-                    Icons.monitor_heart_outlined,
-                    size: 17,
-                    color: Colors.white,
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: app.servers.length > 1
+                      ? () => _showInstancePicker(context)
+                      : null,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          // The published logo is usually white-on-transparent,
+                          // so the badge behind it has to be dark to be visible.
+                          color: Colors.black.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 9),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                        ),
+                        // The status page publishes its own icon; show it instead
+                        // of a generic mark so the instance is recognisable.
+                        // Loaded through the app's own client so DoH/UA apply.
+                        child: NetImage(
+                          url: server?.resolveAsset(snap?.config.iconPath),
+                          size: 24,
+                          doh: app.dohEnabled,
+                          dohEndpoint: app.dohUrl,
+                          userAgent: app.userAgent,
+                          fallback: Icon(
+                            Icons.monitor_heart_outlined,
+                            size: 17,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ctl.merged
+                                  ? (server?.collectionName ?? server?.name ?? '')
+                                  : (server?.name ?? ''),
+                              style: context.txt.titleSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              ctl.merged
+                                  ? l.mergedInstances(ctl.members.length)
+                                  : (server?.displayHost ?? ''),
+                              style: context.txt.labelSmall?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.72),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (app.servers.length > 1) ...[
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          size: 20,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      server?.name ?? '',
-                      style: context.txt.titleSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+              const SizedBox(width: 8),
+              // Fixed box on purpose: swapping a 32 px button for a 15 px
+              // spinner made the header hop on every refresh.
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: ctl.refreshing
+                    ? const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      )
+                    : _HeaderButton(
+                        icon: Icons.refresh_rounded,
+                        onTap: () => ctl.load(),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      server?.displayHost ?? '',
-                      style: context.txt.labelSmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
               ),
-              if (ctl.refreshing)
-                const SizedBox(
-                  width: 15,
-                  height: 15,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                )
-              else
-                _HeaderButton(
-                  icon: Icons.refresh_rounded,
-                  onTap: () => ctl.load(),
-                ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: compact ? 10 : 16),
           Row(
             children: [
-              StatusDot(status: overall, size: 9, pulse: overall == MonitorStatus.down),
+              StatusDot(status: overall, size: compact ? 8 : 9),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   headline,
                   style: context.txt.headlineSmall?.copyWith(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: compact ? 17 : 20,
                     height: 1.2,
                   ),
                 ),
@@ -244,45 +298,128 @@ class _Header extends StatelessWidget {
             ],
           ),
           if (snap != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: compact ? 2 : 4),
             Text(
               '${l.monitorsCount(snap.allMonitors.length)} · ${l.updated} ${Fmt.relative(snap.fetchedAt, l)}',
               style: context.txt.bodySmall?.copyWith(
                 color: Colors.white.withValues(alpha: 0.75),
+                fontSize: compact ? 11 : null,
               ),
             ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                _StatPill(
-                  label: l.upCount,
-                  value: '${snap.upCount}',
-                  color: tk.statusUp,
-                ),
-                const SizedBox(width: 8),
-                _StatPill(
-                  label: l.downCount,
-                  value: '${snap.downCount}',
-                  color: tk.statusDown,
-                ),
-                const SizedBox(width: 8),
-                _StatPill(
-                  label: l.pendingCount,
-                  value: '${snap.pendingCount}',
-                  color: tk.statusPending,
-                ),
-                const SizedBox(width: 8),
-                _StatPill(
-                  label: l.maintenanceCount,
-                  value: '${snap.maintenanceCount}',
-                  color: tk.statusMaintenance,
-                ),
-              ],
-            ),
+            if (!compact) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _StatPill(
+                    label: l.upCount,
+                    value: '${snap.upCount}',
+                    color: tk.statusUp,
+                  ),
+                  const SizedBox(width: 8),
+                  _StatPill(
+                    label: l.downCount,
+                    value: '${snap.downCount}',
+                    color: tk.statusDown,
+                  ),
+                  const SizedBox(width: 8),
+                  _StatPill(
+                    label: l.pendingCount,
+                    value: '${snap.pendingCount}',
+                    color: tk.statusPending,
+                  ),
+                  const SizedBox(width: 8),
+                  _StatPill(
+                    label: l.maintenanceCount,
+                    value: '${snap.maintenanceCount}',
+                    color: tk.statusMaintenance,
+                  ),
+                ],
+              ),
+            ],
           ],
         ],
       ),
     );
+  }
+  /// Bottom sheet listing every instance; only reachable when there is more
+  /// than one, so a single-instance setup keeps a clean header.
+  Future<void> _showInstancePicker(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final tk = ctx.tk;
+        final l = L10n.of(ctx);
+        return Container(
+          margin: EdgeInsets.only(
+            left: 12,
+            right: 12,
+            bottom: MediaQuery.viewPaddingOf(ctx).bottom + 12,
+          ),
+          decoration: BoxDecoration(
+            color: tk.surfaceCard,
+            borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 20),
+            boxShadow: tk.cardShadow,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+                  child: Text(l.switchInstance, style: ctx.txt.titleSmall),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (final server in app.servers)
+                        ListTile(
+                          leading: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AccentPalette.byId(server.colorTag).color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          title: Text(
+                            server.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: ctx.txt.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: tk.textStrong,
+                            ),
+                          ),
+                          subtitle: Text(
+                            server.displayHost,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: ctx.txt.labelSmall?.copyWith(color: tk.muted),
+                          ),
+                          trailing: server.id == app.activeServerId
+                              ? Icon(Icons.check_rounded, size: 18, color: tk.accent)
+                              : null,
+                          onTap: () => Navigator.of(ctx).pop(server.id),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (picked != null && picked != app.activeServerId) {
+      await app.setActiveServer(picked);
+    }
   }
 }
 
@@ -370,42 +507,94 @@ class _StatPill extends StatelessWidget {
   }
 }
 
-class _GroupBlock extends StatelessWidget {
-  const _GroupBlock({required this.group, required this.snapshot});
+class _GroupBlock extends StatefulWidget {
+  const _GroupBlock({super.key, required this.group, required this.snapshot});
 
   final MonitorGroup group;
   final StatusSnapshot snapshot;
 
   @override
+  State<_GroupBlock> createState() => _GroupBlockState();
+}
+
+class _GroupBlockState extends State<_GroupBlock> {
+  bool _collapsed = false;
+
+  /// Mean of the per-monitor 24h uptime, ignoring monitors that have no sample
+  /// yet. Shown only when the SLA switch is on.
+  double? _averageUptime(List<Monitor> monitors) {
+    final values = monitors
+        .map((m) => widget.snapshot.uptimeOf(m.id, 24))
+        .whereType<double>()
+        .toList(growable: false);
+    if (values.isEmpty) return null;
+    return values.reduce((a, b) => a + b) / values.length;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tk = context.tk;
     final l = L10n.of(context);
+    final app = context.watch<AppState>();
+    final group = widget.group;
+    final snapshot = widget.snapshot;
     final monitors = group.realMonitors;
     final headerOnly = group.monitors.isNotEmpty && monitors.isEmpty;
 
     if (monitors.isEmpty && !headerOnly) return const SizedBox.shrink();
 
     final downCount = monitors.where((m) => snapshot.statusOf(m.id) == MonitorStatus.down).length;
+    final avg = app.showSla ? _averageUptime(monitors) : null;
+
+    final badge = downCount > 0
+        ? AppChip(
+            label: '$downCount',
+            color: tk.statusDown,
+            dense: true,
+            icon: Icons.error_rounded,
+          )
+        : AppChip(label: '${monitors.length}', color: tk.muted, dense: true);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: group.name,
-          trailing: downCount > 0
-              ? AppChip(
-                  label: '$downCount',
-                  color: tk.statusDown,
-                  dense: true,
-                  icon: Icons.error_rounded,
-                )
-              : AppChip(
-                  label: '${monitors.length}',
-                  color: tk.muted,
-                  dense: true,
-                ),
+        InkWell(
+          onTap: monitors.isEmpty ? null : () => setState(() => _collapsed = !_collapsed),
+          borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),
+          child: SectionHeader(
+            title: group.name,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (avg != null) ...[
+                  Text(
+                    Fmt.percent(avg),
+                    style: context.txt.labelSmall?.copyWith(
+                      color: avg >= 0.995
+                          ? tk.statusUp
+                          : avg >= 0.97
+                              ? tk.statusPending
+                              : tk.statusDown,
+                      fontFeatures: tk.tabular,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                badge,
+                if (monitors.isNotEmpty) ...[
+                  const SizedBox(width: 2),
+                  AnimatedRotation(
+                    turns: _collapsed ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(Icons.expand_more_rounded, size: 18, color: tk.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
-        if (monitors.isNotEmpty)
+        if (!_collapsed && monitors.isNotEmpty)
           AppCard(
             padding: EdgeInsets.zero,
             accentStripe: downCount > 0,
@@ -472,7 +661,7 @@ class _MonitorRow extends StatelessWidget {
           children: [
             Row(
               children: [
-                StatusDot(status: status, size: 7, pulse: isDown),
+                StatusDot(status: status, size: 7),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -486,15 +675,17 @@ class _MonitorRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (app.showSla && u24 != null)
+                if (app.showSla)
                   Text(
                     Fmt.percent(u24),
                     style: context.txt.labelSmall?.copyWith(
-                      color: u24 >= 0.995
-                          ? tk.statusUp
-                          : u24 >= 0.97
-                              ? tk.statusPending
-                              : tk.statusDown,
+                      color: u24 == null
+                          ? tk.muted
+                          : u24 >= 0.995
+                              ? tk.statusUp
+                              : u24 >= 0.97
+                                  ? tk.statusPending
+                                  : tk.statusDown,
                       fontFeatures: tk.tabular,
                       fontWeight: FontWeight.w700,
                     ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/widgets/app_background.dart';
 import '../../state/app_state.dart';
 import '../admin/admin_page.dart';
 import '../dashboard/dashboard_page.dart';
@@ -79,11 +80,16 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: IndexedStack(
-        index: index,
-        children: [
-          for (final tab in tabs) KeyedSubtree(key: ValueKey(tab.key), child: tab.page),
-        ],
+      body: AppBackground(
+        imagePath: app.hasBackground ? app.bgImagePath : null,
+        opacity: app.bgOpacity,
+        blur: app.bgBlur,
+        child: IndexedStack(
+          index: index,
+          children: [
+            for (final tab in tabs) KeyedSubtree(key: ValueKey(tab.key), child: tab.page),
+          ],
+        ),
       ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
