@@ -22,7 +22,7 @@ Packaged as `com.zakoflare.uptime_kuma_app`.
 | Theme | Light / dark / follow-system, 9 accent colours. |
 | Layout | Two interface styles: *Uptime Kuma* (rounded cards, pill badges) and *Tencent Cloud* (square corners, hairline borders, dense rows). |
 | Appearance | Custom photo background with opacity and blur; optional **long-name clamping** (8–40 chars) so a scrolling row can never reflow the list. |
-| Icon | 4 launcher icons switchable at runtime via `activity-alias`, plus **custom images** picked from the gallery or downloaded from a URL (pinned as a shortcut, since a bitmap cannot replace an installed APK's launcher icon). |
+| Icon | 4 launcher icons switchable at runtime via `activity-alias` (official + three recolours). Uploads are intentionally not offered — see below. |
 | Privacy | Usage-report toggle, DNS-over-HTTPS toggle with a **custom endpoint and port** (any `?name=` JSON resolver), custom User-Agent. |
 | About | Version, contact, project links, APK signing-certificate SHA-256. |
 | Storage | Cache size readout and one-tap clear; settings survive. |
@@ -127,14 +127,34 @@ needs `WRITE_EXTERNAL_STORAGE`, requested on demand; if it is refused the app sa
 so and falls back to the bundled tone instead of pointing at an unreadable
 `file://` path.
 
-**Custom launcher icons are shortcuts, not packaged icons.** `activity-alias` swaps
-between icons baked into the APK, but a user bitmap cannot replace the icon of an
-installed package. The image is therefore rendered at 432 px, applied to the
-recents card (`Activity.setTaskDescription`, the one system-drawn surface that
-takes a runtime bitmap) and offered as a pinned shortcut via
-`ShortcutManager.requestPinShortcut` — pointed at whichever alias is currently
-enabled, so the shortcut actually launches. Launchers that refuse to pin fall
-back to the recents-card icon and say so.
+**Launcher icons are preset only.** `activity-alias` swaps between icons baked
+into the APK, so switching is instant and needs no reinstall. A user bitmap
+*can't* replace the launcher icon of an installed package — the pinned-shortcut
+workaround only adds a second icon next to the app, which read as "the upload
+didn't work", so uploading was dropped.
+
+## Collections and share codes
+
+Instances can be grouped into a **collection**. It is app-local bookkeeping in
+`ServerConfig.collectionId`: members are merged into **one status board** on the
+phone, in list order, with their group titles prefixed by instance name. Monitor
+ids are offset by 10,000,000 per instance so two servers whose ids both start at
+1 cannot collide in `heartbeats` / `uptime`. Nothing is sent upstream, so the
+published status page is untouched.
+
+Collections only merge public status pages — a management session is bound to a
+single instance and cannot be multiplexed.
+
+Configurations travel as `uptimekuma://` links (base64url JSON, no padding):
+
+```
+uptimekuma://instance/<payload>     one instance
+uptimekuma://collection/<payload>   a whole collection
+```
+
+Credentials are deliberately excluded — neither the API key nor the session JWT
+is encoded, so a leaked clipboard cannot grant management access. An imported
+management instance asks for a password again.
 
 ## Build
 
@@ -153,12 +173,12 @@ python tool/make_sounds.py       # assets/sounds/*.wav + res/raw/*.wav
 python tool/make_brand_icons.py  # icons derived from Uptime Kuma's official SVG
 ```
 
-`make_brand_icons.py` reads `assets/images/icon_official.png` (Uptime Kuma's
-`public/icon.svg` rendered at 640 px) and writes the legacy `mipmap-*` bitmaps,
-the in-app previews, and an **adaptive icon** (`mipmap-anydpi-v26/*.xml` +
-`drawable-nodpi/uk_bg_*.png`). Without the adaptive descriptor Android 8+ treats
-the bitmap as a legacy icon and shrinks it inside its own mask, which reads as
-"the icon is too small / still the old one".
+`make_brand_icons.py` reads `assets/images/icon_official.png` (white field,
+green Kuma circle) and writes the legacy `mipmap-*` bitmaps, the recoloured
+previews, and an **adaptive icon** per colour way (`mipmap-anydpi-v26/*.xml`
+with a white `uk_bg_white` background and the circle as foreground). Without the
+adaptive descriptor Android 8+ treats the bitmap as a legacy icon and shrinks it
+inside its own mask, which reads as "the icon is too small / still the old one".
 
 ## Tests
 

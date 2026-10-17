@@ -84,6 +84,7 @@ void main() {
     required Brightness brightness,
     required Size size,
     required Locale locale,
+    bool showSla = false,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final store = await SettingsStore.open();
@@ -98,6 +99,7 @@ void main() {
         slug: 'main',
       ),
     );
+    if (showSla) app.setShowSla(true);
     final controller = StatusController(app, seedSnapshot: buildSnapshot());
 
     tester.view.physicalSize = size;
@@ -158,6 +160,37 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.textContaining('monitors'), findsWidgets);
+  });
+
+  testWidgets('a group collapses to its name, count and average SLA', (tester) async {
+    await pumpDashboard(
+      tester,
+      style: UiStyle.kuma,
+      brightness: Brightness.light,
+      size: const Size(412, 915),
+      locale: const Locale('zh'),
+      showSla: true,
+    );
+    expect(find.text('官网[LNTL]'), findsOneWidget);
+
+    // Collapse the first group by tapping its header.
+    await tester.tap(find.text('Public service').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('官网[LNTL]'), findsNothing);
+    // The group header keeps a percentage for the group as a whole.
+    final percents = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data)
+        .whereType<String>()
+        .where((s) => RegExp(r'^\d+\.\d{2}%$').hasMatch(s))
+        .toList();
+    expect(percents, isNotEmpty, reason: 'average SLA missing from the header');
+
+    // Expanding brings the rows back.
+    await tester.tap(find.text('Public service').first);
+    await tester.pumpAndSettle();
+    expect(find.text('官网[LNTL]'), findsOneWidget);
   });
 
   testWidgets('a failing monitor is surfaced in the header', (tester) async {

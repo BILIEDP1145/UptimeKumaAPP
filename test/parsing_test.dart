@@ -93,6 +93,38 @@ void main() {
       );
     }
 
+    test('merging two boards keeps ids apart and prefixes group titles', () {
+      final merged = StatusSnapshot.merge([
+        (label: 'Alpha', snapshot: build()),
+        (label: 'Beta', snapshot: build()),
+      ]);
+
+      // Two instances, ids overlapping at 10/11 — offsets must separate them.
+      final ids = merged.allMonitors.map((m) => m.id).toList();
+      expect(ids.toSet().length, ids.length);
+      expect(merged.allMonitors.length, 4);
+
+      // Groups appear in the order the parts were supplied.
+      expect(merged.groups.first.name, 'Alpha · Group');
+      expect(merged.groups.last.name, 'Beta · Group');
+
+      // Heartbeats and uptime follow the same offset, or the board goes blank.
+      for (final monitor in merged.allMonitors) {
+        expect(merged.heartbeatsOf(monitor.id), isNotEmpty);
+        expect(merged.uptimeOf(monitor.id, 24), isNotNull);
+      }
+
+      // The second copy of the down monitor is still counted as down.
+      expect(merged.downCount, 2);
+      expect(merged.upCount, 2);
+    });
+
+    test('a single part merges to itself without re-offsetting', () {
+      final original = build();
+      final merged = StatusSnapshot.merge([(label: 'Only', snapshot: original)]);
+      expect(identical(merged, original), isTrue);
+    });
+
     test('group headers are excluded from monitors', () {
       final snap = build();
       expect(snap.allMonitors.length, 2);

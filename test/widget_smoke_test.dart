@@ -60,7 +60,7 @@ void main() {
                     accentStripe: true,
                     child: Row(
                       children: [
-                        StatusDot(status: MonitorStatus.down, pulse: true),
+                        StatusDot(status: MonitorStatus.down),
                         const SizedBox(width: 8),
                         StatusBadge(status: MonitorStatus.up),
                         const SizedBox(width: 8),
@@ -132,5 +132,37 @@ void main() {
     );
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  // Regression: a pulsing ring used to grow the dot from 8 to 22 px every
+  // frame, so a failing monitor shifted its whole row. The dot must own the
+  // same footprint in every state, animated or not.
+  testWidgets('status dot keeps a fixed footprint in every state', (tester) async {
+    for (final status in MonitorStatus.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(
+            brightness: Brightness.light,
+            palette: AccentPalette.all.first,
+            style: UiStyle.kuma,
+          ),
+          home: Scaffold(
+            body: Row(
+              children: [
+                StatusDot(status: status, size: 7),
+                StatusDot(status: status, size: 9),
+              ],
+            ),
+          ),
+        ),
+      );
+      // Let any (unwanted) animation advance and re-measure.
+      await tester.pump(const Duration(milliseconds: 800));
+
+      final dots = find.byType(StatusDot);
+      expect(dots, findsNWidgets(2));
+      expect(tester.getSize(dots.at(0)), const Size(7, 7), reason: status.name);
+      expect(tester.getSize(dots.at(1)), const Size(9, 9), reason: status.name);
+    }
   });
 }
