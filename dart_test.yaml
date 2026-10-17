@@ -1,0 +1,4 @@
+tags:
+  live:
+    # Hits a real Uptime Kuma instance; run with `flutter test --tags live`.
+    skip: false
