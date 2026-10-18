@@ -78,20 +78,28 @@ class _HomeShellState extends State<HomeShell> {
     final index = _index.clamp(0, tabs.length - 1);
     final navBottom = MediaQuery.viewPaddingOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: AppBackground(
-        imagePath: app.hasBackground ? app.bgImagePath : null,
-        opacity: app.bgOpacity,
-        blur: app.bgBlur,
-        child: IndexedStack(
-          index: index,
-          children: [
-            for (final tab in tabs) KeyedSubtree(key: ValueKey(tab.key), child: tab.page),
-          ],
+    // The photo sits *behind* the Scaffold rather than inside its body: when the
+    // keyboard resizes the body, a `BoxFit.cover` image inside it re-scales,
+    // which looked like the whole background jumping. Positioned outside, it
+    // keeps its size and the keyboard only moves the content.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        AppBackground(
+          imagePath: app.hasBackground ? app.bgImagePath : null,
+          opacity: app.bgOpacity,
+          blur: app.bgBlur,
+          child: const SizedBox.expand(),
         ),
-      ),
-      bottomNavigationBar: DecoratedBox(
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          body: IndexedStack(
+            index: index,
+            children: [
+              for (final tab in tabs) KeyedSubtree(key: ValueKey(tab.key), child: tab.page),
+            ],
+          ),
+          bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: tk.surfaceCard,
           border: Border(top: BorderSide(color: tk.hairline)),
@@ -126,7 +134,9 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ),
         ),
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

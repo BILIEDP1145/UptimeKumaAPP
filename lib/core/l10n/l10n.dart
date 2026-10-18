@@ -56,6 +56,7 @@ class L10n {
         '粘贴一条或多条 uptimekuma:// 链接，每行一条。导出不含任何凭据，管理模式实例导入后需重新登录。',
       );
   String get importAction => _t('Import', '导入');
+  String get pasteFromClipboard => _t('Paste', '粘贴');
   String get importInvalid => _t('Nothing importable in that text', '这段内容里没有可导入的配置');
   String importedCount(int n) => _t('Imported $n instance(s)', '已导入 $n 个实例');
   String get exportConfig => _t('Export config', '导出配置');
@@ -222,6 +223,47 @@ class L10n {
   String get notifyOnUp => _t('Notify on recovery', '恢复时通知');
   String get notifySound => _t('Alert sound', '提醒音效');
   String get preview => _t('Preview', '试听');
+  String get bgIntervalTitle => _t('Check interval', '检查间隔');
+  String bgMinutes(int m) => _t('$m min', '$m 分钟');
+  String get bgIntervalBody => _t(
+        'WorkManager will not go below 15 minutes on its own, so shorter '
+            'intervals run as a chain of one-shot tasks. Android may still batch '
+            'them while the phone is dozing.',
+        '系统周期任务最低 15 分钟，更短的间隔由一串一次性任务接力实现；'
+            '手机进入深度睡眠时系统仍可能推迟执行。',
+      );
+  String get inAppSoundTitle => _t('Play the tone inside the app', '应用内播放提示音');
+  String get inAppSoundBody => _t(
+        'Android 16 devices sometimes never start the notification channel '
+            'sound. With this on, the app plays the same tone itself while it is '
+            'open. Turn it off if you hear the alert twice.',
+        '部分 Android 16 设备不会播放通知渠道声音。开启后，应用在前台时会自己再播一遍。'
+            '如果听到重复提示音，可以关掉。',
+      );
+  String get previewFailed => _t('Preview failed', '试听失败');
+  String get previewFileMissing => _t(
+        'The uploaded file is gone. Pick it again.',
+        '上传的音频文件已不存在，请重新选择。',
+      );
+  String get diagnosticsTitle => _t('Notification diagnostics', '通知诊断');
+  String get diagnosticsRun => _t('Run', '运行');
+  String get diagnosticsHint => _t(
+        'Shows what Android reports about permissions and channels — copy it '
+            'when reporting a missing sound.',
+        '显示系统报告的通知权限与渠道状态，反馈无声问题时请复制这段内容。',
+      );
+  String get copyDiagnostics => _t('Copy', '复制');
+  String get channelSilentTitle => _t('This alert channel is muted', '该告警渠道已被静音');
+  String get channelSilentBody => _t(
+        'Android reports no sound for the channel used by the selected tone — '
+            'usually because the system rewrote it during an upgrade. Open the '
+            'app\'s notification settings and switch “Uptime Kuma monitor state '
+            'changes” back on, or pick another tone to create a fresh channel.',
+        '系统报告该音效对应的通知渠道没有声音——通常是升级后被系统改写。请到应用通知设置里把'
+            '“Uptime Kuma monitor state changes”重新允许声音，或换一个音效以创建新渠道。',
+      );
+  String get openSystemNotificationSettings =>
+      _t('Open settings', '打开设置');
   String get notificationPermission => _t('Notification permission', '通知权限');
   String get permissionGranted => _t('Granted', '已授权');
   String get permissionDenied => _t('Denied', '未授权');
@@ -478,11 +520,25 @@ class L10n {
             'Cloudflare, then Google; set your own endpoint below.',
         '通过 DoH JSON 接口解析实例域名。默认先 Cloudflare 再 Google，也可在下方填写自建端点。',
       );
+  String get silentLoginTitle => _t('Silent sign-in', '凭据静默登录');
+  String get silentLoginBody => _t(
+        'Keeps the management password in the system keystore so an expired '
+            'session is renewed without a prompt. Turning this off deletes every '
+            'stored password.',
+        '将管理密码保存在系统密钥库中，会话过期时自动重新登录、不再弹窗。'
+            '关闭此选项会删除全部已保存的密码。',
+      );
+  String get dohTest => _t('Test', '测试');
+  String dohTestOk(String address) => _t('Resolved $address', '解析成功 · $address');
+  String dohTestStatus(int code) =>
+      _t('Server answered HTTP $code', '服务器返回 HTTP $code');
+  String dohTestError(String message) => _t('Request failed: $message', '请求失败：$message');
   String get dohEndpointTitle => _t('DoH endpoint', 'DoH 服务地址');
   String get dohEndpointBody => _t(
-        'Address and port of a resolver that speaks the ?name= JSON API. '
-            'Leave empty for the defaults.',
-        '支持 ?name= 的 JSON 接口地址与端口，留空则使用默认服务。',
+        'A DoH server address, port optional. Both the standard RFC 8484 '
+            'wire format and the JSON API are supported; a bare domain gets '
+            '/dns-query appended automatically. Leave empty for the defaults.',
+        'DoH 服务器地址，端口可省略。同时兼容标准 RFC 8484 与 JSON 接口；只填域名会自动补 /dns-query。留空则使用默认服务。',
       );
   String get dohEndpointHint => _t(
         'https://doh.zakoflare.com/dns-query',
@@ -511,6 +567,16 @@ class L10n {
   String get statusColorDown => _t('Down / fault', '故障');
   String get statusColorReset => _t('Use the default palette', '使用默认配色');
   String get uiEffectsTitle => _t('UI effects', '界面效果');
+  String get previewTitle => _t('Preview', '效果预览');
+  String get previewHint => _t(
+        'Drag the controls below: cards and the header update against your own '
+            'photo. This page is the only place the photo is shown behind the UI.',
+        '拖动下方控件即可看到卡片与头部的真实效果。这是唯一会在界面下显示背景图的设置页。',
+      );
+  String get previewInstance => _t('Sample instance', '示例实例');
+  String get previewSubtitle => _t('3 monitors · updated just now', '3 个监控项 · 刚刚更新');
+  String get previewMonitorA => _t('Edge node · Tokyo', '边缘节点 · 东京');
+  String get previewMonitorB => _t('Origin · Frankfurt', '源站 · 法兰克福');
   String get headerSectionTitle => _t('Dashboard header', '首页头部');
   String get headerFull => _t('Full', '完整版');
   String get headerCompact => _t('Compact', '简略版');

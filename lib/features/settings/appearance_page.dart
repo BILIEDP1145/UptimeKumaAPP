@@ -10,6 +10,7 @@ import '../../core/theme/palettes.dart';
 import '../../core/widgets/app_card.dart';
 import '../../services/settings_store.dart';
 import '../../state/app_state.dart';
+import 'appearance_preview_page.dart';
 
 class AppearancePage extends StatefulWidget {
   const AppearancePage({super.key});
@@ -295,7 +296,20 @@ class _AppearancePageState extends State<AppearancePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.statusColorsTitle, style: context.txt.titleSmall),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(l.uiEffectsTitle, style: context.txt.titleSmall),
+                    ),
+                    TextButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).push(AppearancePreviewPage.route()),
+                      icon: const Icon(Icons.visibility_outlined, size: 15),
+                      label: Text(l.previewTitle),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
                 const SizedBox(height: 3),
                 Text(
                   l.statusColorsBody,
@@ -447,7 +461,10 @@ class _AppearancePageState extends State<AppearancePage> {
                 ),
                 const SizedBox(height: 10),
                 if (app.hasBackground)
-                  ClipRRect(
+                  GestureDetector(
+                    onTap: () =>
+                        Navigator.of(context).push(AppearancePreviewPage.route()),
+                    child: ClipRRect(
                     borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 12),
                     child: SizedBox(
                       height: 116,
@@ -471,6 +488,7 @@ class _AppearancePageState extends State<AppearancePage> {
                         ],
                       ),
                     ),
+                  ),
                   ),
                 const SizedBox(height: 10),
                 SizedBox(

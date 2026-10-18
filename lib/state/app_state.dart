@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../core/theme/palettes.dart';
 import '../data/cache/cache_store.dart';
 import '../data/models/server_config.dart';
 import '../data/models/share_code.dart';
+import '../services/credential_store.dart';
 import '../services/settings_store.dart';
 import '../services/sound_library.dart';
 
@@ -32,6 +34,8 @@ class AppState extends ChangeNotifier {
   bool _notifyOnDown = true;
   bool _notifyOnUp = true;
   bool _backgroundChecks = true;
+  int _backgroundInterval = 5;
+  bool _silentLogin = true;
   String _soundId = 'chime';
   String _customSoundUri = '';
   String _customSoundPath = '';
@@ -53,6 +57,7 @@ class AppState extends ChangeNotifier {
   bool _glass = false;
   bool _headerCompact = false;
   bool _headerGlass = false;
+  bool _inAppSound = true;
   int _nameClampChars = 18;
 
   // Read accessors ---------------------------------------------------------
@@ -67,6 +72,8 @@ class AppState extends ChangeNotifier {
   bool get notifyOnDown => _notifyOnDown;
   bool get notifyOnUp => _notifyOnUp;
   bool get backgroundChecks => _backgroundChecks;
+  int get backgroundInterval => _backgroundInterval;
+  bool get silentLogin => _silentLogin;
   SoundOption get sound => SoundOption.byId(
         _soundId,
         customUri: _customSoundUri,
@@ -99,6 +106,9 @@ class AppState extends ChangeNotifier {
 
   /// Frosted glass for the dashboard header only.
   bool get headerGlass => _headerGlass;
+
+  /// Play alert tones in-app as well (foreground only).
+  bool get inAppSound => _inAppSound;
   int get nameClampChars => _nameClampChars;
   int get pollSeconds => _pollSeconds;
   List<ServerConfig> get servers => List.unmodifiable(_servers);
@@ -148,6 +158,8 @@ class AppState extends ChangeNotifier {
     _notifyOnDown = _store.notifyOnDown;
     _notifyOnUp = _store.notifyOnUp;
     _backgroundChecks = _store.backgroundChecks;
+    _backgroundInterval = _store.backgroundInterval;
+    _silentLogin = _store.silentLogin;
     _soundId = _store.soundId;
     _pollSeconds = _store.pollSeconds;
     _iconVariant = _store.iconVariant;
@@ -169,6 +181,7 @@ class AppState extends ChangeNotifier {
     _glass = _store.glass;
     _headerCompact = _store.headerCompact;
     _headerGlass = _store.headerGlass;
+    _inAppSound = _store.inAppSound;
     _nameClampChars = _store.nameClampChars;
 
     final list = ServerConfig.decodeList(_store.serversJson);
@@ -237,6 +250,20 @@ class AppState extends ChangeNotifier {
   void setNotifyUp(bool v) {
     _notifyOnUp = v;
     _store.notifyOnUp = v;
+    notifyListeners();
+  }
+
+  void setSilentLogin(bool v) {
+    _silentLogin = v;
+    _store.silentLogin = v;
+    // Turning it off must actually forget the passwords.
+    if (!v) unawaited(CredentialStore.clearAll());
+    notifyListeners();
+  }
+
+  void setBackgroundInterval(int minutes) {
+    _backgroundInterval = minutes.clamp(5, 15);
+    _store.backgroundInterval = _backgroundInterval;
     notifyListeners();
   }
 
@@ -320,6 +347,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setInAppSound(bool v) {
+    _inAppSound = v;
+    _store.inAppSound = v;
+    notifyListeners();
+  }
+
   void setHeaderGlass(bool v) {
     _headerGlass = v;
     _store.headerGlass = v;
@@ -388,6 +421,7 @@ class AppState extends ChangeNotifier {
     }
     _persistServers();
     await CacheStore.instance.clearServer(id);
+    await CredentialStore.delete(id);
     notifyListeners();
   }
 

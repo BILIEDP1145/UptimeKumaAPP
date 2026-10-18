@@ -35,14 +35,20 @@ class SoundOption {
 
   String label(bool zh) => zh ? labelZh : labelEn;
 
+  /// Android freezes a channel's audio the moment it is created, and Android 15
+  /// and up *also* re-writes channels during an OS upgrade — which is how a
+  /// channel ends up permanently silent. Bumping the suffix `v2` creates a fresh
+  /// channel with the sound the user picked, instead of fighting a frozen one.
+  static const String channelVersion = 'v2';
+
   /// Android caches channel audio, so the channel id must change whenever the
   /// chosen tone changes.
   String channelId() {
-    if (contentUri != null) {
-      final tail = contentUri!.split('/').last;
-      return 'uk_alerts_custom_$tail';
+    if (isCustom) {
+      final tail = (contentUri ?? localPath ?? '').split('/').last;
+      return 'uk_alerts_custom_${tail}_$channelVersion';
     }
-    return 'uk_alerts_$rawName';
+    return 'uk_alerts_${rawName}_$channelVersion';
   }
 
   static const List<SoundOption> all = [

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/l10n/l10n.dart';
@@ -26,14 +27,70 @@ class _NotificationsPageState extends State<NotificationsPage> {
   String? _playingId;
   bool _uploading = false;
   bool _permission = false;
+  bool _channelSilent = false;
+  String? _checkedSoundId;
+  String? _diagnostics;
+
+  Future<void> _runDiagnose() async {
+    final sound = context.read<AppState>().sound;
+    final lines = await NotificationService.instance.diagnose(sound);
+    if (!mounted) return;
+    setState(() => _diagnostics = lines.join('\n'));
+  }
 
   @override
   void initState() {
     super.initState();
+    _configureAudio();
     _refreshPermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _repairCustomSound());
     _player.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _playingId = null);
     });
+  }
+
+  /// Explicit Android audio attributes.
+  ///
+  /// audioplayers defaults to a focus-less context, and Android 16 will not
+  /// start an AudioTrack for an app that never requested focus — the preview
+  /// then fails silently. `media` + `gain` is what an alarm tone needs.
+  Future<void> _configureAudio() async {
+    try {
+      await _player.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            audioMode: AndroidAudioMode.normal,
+            stayAwake: false,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.media,
+            audioFocus: AndroidAudioFocus.gain,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('audio context: $e');
+    }
+  }
+
+  /// Older installs stored only the media-store URI. Pull the file back once so
+  /// previews and in-app playback have something real to open.
+  Future<void> _repairCustomSound() async {
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    if (!app.sound.isCustom) return;
+    if (app.customSoundPath.isNotEmpty) return;
+    final uri = app.customSoundUri;
+    if (uri.isEmpty) return;
+    final recovered = await CustomSoundStore.recover(uri);
+    if (recovered == null || !mounted) return;
+    app.setCustomSound(uri: uri, path: recovered);
+  }
+
+  Future<void> _refreshChannel(SoundOption sound) async {
+    final silent = await NotificationService.instance.channelIsSilent(sound);
+    if (!mounted) return;
+    if (silent != _channelSilent) setState(() => _channelSilent = silent);
   }
 
   Future<void> _refreshPermission() async {
@@ -49,6 +106,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _preview(SoundOption sound) async {
+    final l = L10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       if (_playingId == sound.id) {
         await _player.stop();
@@ -56,16 +115,42 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return;
       }
       await _player.stop();
-      if (sound.localPath != null) {
-        await _player.play(DeviceFileSource(sound.localPath!));
+
+      if (sound.isCustom) {
+        // A custom tone has no bundled asset — falling through to AssetSource
+        // produced `assets/sounds/.wav` and an unreadable error. MediaPlayer
+        // also cannot open a media-store URI (`setDataSource failed`), so the
+        // file is restored from the store first.
+        var path = sound.localPath;
+        var hasLocal = path != null && path.isNotEmpty && File(path).existsSync();
+        if (!hasLocal && (sound.contentUri ?? '').isNotEmpty) {
+          final recovered = await CustomSoundStore.recover(sound.contentUri!);
+          if (recovered != null) {
+            path = recovered;
+            hasLocal = true;
+            if (mounted) {
+              context.read<AppState>().setCustomSound(
+                    uri: sound.contentUri!,
+                    path: recovered,
+                  );
+            }
+          }
+        }
+        if (!hasLocal || path == null) {
+          messenger.showSnackBar(SnackBar(content: Text(l.previewFileMissing)));
+          return;
+        }
+        await _player.play(DeviceFileSource(path));
       } else {
         await _player.play(AssetSource(sound.assetPath.replaceFirst('assets/', '')));
       }
+      if (!mounted) return;
       setState(() => _playingId = sound.id);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _playingId = null);
-      }
+    } catch (e) {
+      // Never swallow this again: a silent failure looked like a dead button.
+      if (!mounted) return;
+      setState(() => _playingId = null);
+      messenger.showSnackBar(SnackBar(content: Text('${l.previewFailed}: $e')));
     }
   }
 
@@ -107,6 +192,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final tk = context.tk;
     final l = L10n.of(context);
 
+    // Re-check the channel whenever the selected tone changes.
+    if (_checkedSoundId != app.sound.id) {
+      _checkedSoundId = app.sound.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshChannel(app.sound));
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(l.settingsNotifications)),
@@ -138,11 +229,105 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     value: app.notifyOnUp,
                     onChanged: app.setNotifyUp,
                   ),
+                  Divider(height: 20, color: tk.hairline),
+                  _SwitchRow(
+                    title: l.inAppSoundTitle,
+                    subtitle: l.inAppSoundBody,
+                    value: app.inAppSound,
+                    onChanged: app.setInAppSound,
+                  ),
                 ],
               ],
             ),
           ),
           const SizedBox(height: 12),
+
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.bug_report_outlined, size: 17, color: tk.accentInk),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l.diagnosticsTitle, style: context.txt.titleSmall),
+                    ),
+                    TextButton(
+                      onPressed: _runDiagnose,
+                      child: Text(l.diagnosticsRun),
+                    ),
+                  ],
+                ),
+                Text(
+                  l.diagnosticsHint,
+                  style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
+                ),
+                if (_diagnostics != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: tk.surfaceSunken,
+                      borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),
+                    ),
+                    child: Text(
+                      _diagnostics!,
+                      style: context.txt.labelSmall?.copyWith(
+                        fontFamily: 'monospace',
+                        fontSize: 10.5,
+                        height: 1.5,
+                        color: tk.textStrong,
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _diagnostics!));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l.exportedToClipboard)),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 15),
+                      label: Text(l.copyDiagnostics),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (_channelSilent) ...[
+            AppCard(
+              child: Row(
+                children: [
+                  Icon(Icons.volume_off_rounded, size: 18, color: tk.statusPending),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.channelSilentTitle, style: context.txt.titleSmall),
+                        const SizedBox(height: 2),
+                        Text(
+                          l.channelSilentBody,
+                          style: context.txt.labelSmall?.copyWith(
+                            color: tk.muted,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // Permission
           AppCard(
@@ -302,6 +487,42 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     BackgroundChecks.syncSchedule(app);
                   },
                 ),
+                if (app.backgroundChecks && Platform.isAndroid) ...[
+                  Divider(height: 18, color: tk.hairline),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l.bgIntervalTitle,
+                      style: context.txt.bodySmall?.copyWith(color: tk.textStrong),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final minutes in const [5, 10, 15])
+                        ChoiceChip(
+                          label: Text(l.bgMinutes(minutes)),
+                          selected: app.backgroundInterval == minutes,
+                          onSelected: (_) {
+                            app.setBackgroundInterval(minutes);
+                            BackgroundChecks.syncSchedule(app);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l.bgIntervalBody,
+                      style: context.txt.labelSmall?.copyWith(
+                        color: tk.muted,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

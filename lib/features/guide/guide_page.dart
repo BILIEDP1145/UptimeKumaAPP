@@ -5,6 +5,7 @@ import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/widgets/app_card.dart';
 import '../../state/app_state.dart';
+import '../servers/import_dialog.dart';
 import '../servers/server_edit_page.dart';
 
 /// First-run screen. The app ships with no instances at all — everything the
@@ -67,6 +68,15 @@ class GuidePage extends StatelessWidget {
               onTap: () => Navigator.of(context).push<void>(
                 MaterialPageRoute(builder: (_) => const ServerEditPage()),
               ),
+            ),
+            const SizedBox(height: 10),
+            // First-run users get their setup from a friend as a link, so the
+            // importer has to be reachable before any instance exists.
+            OutlinedButton.icon(
+              onPressed: () =>
+                  showImportDialog(context, title: l.importInstance),
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: Text(l.importInstance),
             ),
             const SizedBox(height: 18),
             Row(

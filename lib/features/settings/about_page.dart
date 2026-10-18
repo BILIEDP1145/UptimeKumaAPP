@@ -89,7 +89,7 @@ class _AboutPageState extends State<AboutPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text('Uptime Kuma Mobile', style: context.txt.titleMedium),
+                Text('UptimeKumaAPP', style: context.txt.titleMedium),
                 const SizedBox(height: 3),
                 Text(
                   'ZAKOFLARE & MILLENNIUMIC',

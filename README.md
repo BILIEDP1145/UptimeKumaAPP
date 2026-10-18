@@ -133,6 +133,14 @@ into the APK, so switching is instant and needs no reinstall. A user bitmap
 workaround only adds a second icon next to the app, which read as "the upload
 didn't work", so uploading was dropped.
 
+## Appearance preview
+
+Settings pages are opaque on purpose (see the flicker notes below), which means
+the UI-opacity and frosted-glass sliders have nothing visible behind them. The
+appearance page therefore links to a **live preview** — a real header and real
+cards painted over the user's own photo, with the three relevant controls inline
+so the decision is made by looking rather than guessing.
+
 ## Collections and share codes
 
 Instances can be grouped into a **collection**. It is app-local bookkeeping in

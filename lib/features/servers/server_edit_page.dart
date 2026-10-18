@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../../core/widgets/app_card.dart';
 import '../../data/api/uk_api.dart';
 import '../../data/api/uk_socket.dart';
 import '../../data/models/server_config.dart';
+import '../../services/credential_store.dart';
 import '../../state/app_state.dart';
 
 class ServerEditPage extends StatefulWidget {
@@ -48,6 +51,7 @@ class _ServerEditPageState extends State<ServerEditPage> {
     _apiKey = TextEditingController(text: server?.apiKey ?? '');
     _username = TextEditingController(text: server?.username ?? '');
     _password = TextEditingController();
+    unawaited(_restorePassword());
     _otp = TextEditingController();
     _mode = server?.mode ?? ServerMode.monitor;
     _slugTouched = (server?.slug ?? '').isNotEmpty;
@@ -209,6 +213,15 @@ class _ServerEditPageState extends State<ServerEditPage> {
     });
   }
 
+  /// Shows the saved password instead of an empty box.
+  Future<void> _restorePassword() async {
+    final server = widget.server;
+    if (server == null || !server.isManage) return;
+    final stored = await CredentialStore.read(server.id);
+    if (stored == null || stored.isEmpty || !mounted) return;
+    setState(() => _password.text = stored);
+  }
+
   Future<void> _persist(ServerConfig draft) async {
     final app = context.read<AppState>();
     if (_isEdit) {
@@ -216,6 +229,15 @@ class _ServerEditPageState extends State<ServerEditPage> {
     } else {
       await app.addServer(draft);
       await app.setActiveServer(draft.id);
+    }
+    // Keep the password for silent re-authentication — or drop it when the
+    // feature is off, so disabling the switch really forgets it.
+    if (draft.isManage) {
+      if (app.silentLogin && _password.text.isNotEmpty) {
+        await CredentialStore.save(draft.id, _password.text);
+      } else if (!app.silentLogin) {
+        await CredentialStore.delete(draft.id);
+      }
     }
     if (!mounted) return;
     setState(() => _busy = false);

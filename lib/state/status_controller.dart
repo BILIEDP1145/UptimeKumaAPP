@@ -284,6 +284,7 @@ class StatusController extends ChangeNotifier {
             startedAt: since,
             sound: sound,
             detail: detail,
+            inApp: _app.inAppSound,
           ));
         }
       } else if (previous == MonitorStatus.down &&
@@ -299,6 +300,7 @@ class StatusController extends ChangeNotifier {
             sound: sound,
             downtime: downtime,
             detail: detail,
+            inApp: _app.inAppSound,
           ));
         }
       }

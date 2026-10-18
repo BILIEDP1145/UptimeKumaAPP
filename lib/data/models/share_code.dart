@@ -82,7 +82,7 @@ class ShareCode {
       // Tolerate a bare payload pasted without the scheme.
       payload = text;
     }
-    if (payload == null || payload.isEmpty) return null;
+    if (payload.isEmpty) return null;
 
     final decoded = _decode(payload);
     if (decoded == null) return null;
@@ -91,11 +91,10 @@ class ShareCode {
     if (type == 'instance') {
       final server = _server(decoded);
       if (server == null) return null;
+      final collection = (decoded['collection'] as String?)?.trim() ?? '';
       return SharePayload(
         servers: [server],
-        collectionName: (decoded['collection'] as String?)?.trim().isEmpty ?? true
-            ? null
-            : (decoded['collection'] as String).trim(),
+        collectionName: collection.isEmpty ? null : collection,
       );
     }
     if (type == 'collection') {

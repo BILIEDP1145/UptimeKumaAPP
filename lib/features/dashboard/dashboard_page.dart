@@ -539,9 +539,11 @@ class _GroupBlockState extends State<_GroupBlock> {
     final group = widget.group;
     final snapshot = widget.snapshot;
     final monitors = group.realMonitors;
-    final headerOnly = group.monitors.isNotEmpty && monitors.isEmpty;
 
-    if (monitors.isEmpty && !headerOnly) return const SizedBox.shrink();
+    // A parent group publishes its children as `type == 'group'` entries, and
+    // those children arrive as their own groups. Rendering the parent would
+    // produce an empty "Overview · 0" card with nothing under it, so skip it.
+    if (monitors.isEmpty) return const SizedBox.shrink();
 
     final downCount = monitors.where((m) => snapshot.statusOf(m.id) == MonitorStatus.down).length;
     final avg = app.showSla ? _averageUptime(monitors) : null;

@@ -16,6 +16,7 @@ import '../state/app_state.dart';
 
 const _taskName = 'ukStatusCheck';
 const _uniqueName = 'ukStatusCheckPeriodic';
+const _chainName = 'ukStatusCheckChain';
 
 @pragma('vm:entry-point')
 void backgroundCallbackDispatcher() {
@@ -26,6 +27,10 @@ void backgroundCallbackDispatcher() {
     } catch (e) {
       debugPrint('background check failed: $e');
       return false;
+    } finally {
+      // Queue the next run in `finally`: a thrown check must not break the
+      // chain, or background alerts stop permanently after one bad response.
+      await BackgroundChecks.scheduleNext();
     }
   });
 }
@@ -44,7 +49,12 @@ class BackgroundChecks {
     }
   }
 
-  /// Registers or cancels the periodic task to match current settings.
+  /// Registers or cancels the background work to match current settings.
+  ///
+  /// WorkManager refuses periodic intervals under 15 minutes, which is far too
+  /// coarse for uptime monitoring. Below that threshold the work is scheduled as
+  /// a chain of one-shot tasks; the system may still defer them while dozing,
+  /// but in normal use they fire on time.
   static Future<void> syncSchedule(AppState app) async {
     if (!Platform.isAndroid) return;
     await ensureInitialised();
@@ -53,20 +63,60 @@ class BackgroundChecks {
     try {
       if (!app.backgroundChecks || !app.notificationsEnabled || app.servers.isEmpty) {
         await Workmanager().cancelByUniqueName(_uniqueName);
+        await Workmanager().cancelByUniqueName(_chainName);
         return;
       }
-      await Workmanager().registerPeriodicTask(
-        _uniqueName,
-        _taskName,
-        frequency: const Duration(minutes: 15),
-        constraints: Constraints(networkType: NetworkType.connected),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-        backoffPolicy: BackoffPolicy.linear,
-        backoffPolicyDelay: const Duration(minutes: 5),
-      );
+
+      final minutes = app.backgroundInterval;
+      if (minutes >= 15) {
+        await Workmanager().cancelByUniqueName(_chainName);
+        await Workmanager().registerPeriodicTask(
+          _uniqueName,
+          _taskName,
+          frequency: Duration(minutes: minutes),
+          constraints: Constraints(networkType: NetworkType.connected),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+          backoffPolicy: BackoffPolicy.linear,
+          backoffPolicyDelay: const Duration(minutes: 5),
+        );
+      } else {
+        await Workmanager().cancelByUniqueName(_uniqueName);
+        await _enqueueOnce(minutes);
+      }
     } catch (e) {
-      debugPrint('registerPeriodicTask failed: $e');
+      debugPrint('background schedule failed: $e');
     }
+  }
+
+  /// Queues the next chained run. Safe to call from the background isolate.
+  static Future<void> scheduleNext() async {
+    if (!Platform.isAndroid) return;
+    await ensureInitialised();
+    if (!_initialised) return;
+    try {
+      final store = await SettingsStore.open();
+      if (!store.notificationsEnabled || !store.backgroundChecks) return;
+      final minutes = store.backgroundInterval;
+      if (minutes >= 15) {
+        // A periodic task already exists; nothing to chain.
+        return;
+      }
+      await _enqueueOnce(minutes);
+    } catch (e) {
+      debugPrint('reschedule failed: $e');
+    }
+  }
+
+  static Future<void> _enqueueOnce(int minutes) async {
+    await Workmanager().registerOneOffTask(
+      _chainName,
+      _taskName,
+      initialDelay: Duration(minutes: minutes),
+      constraints: Constraints(networkType: NetworkType.connected),
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+      backoffPolicy: BackoffPolicy.linear,
+      backoffPolicyDelay: const Duration(minutes: 2),
+    );
   }
 
   static Future<void> cancelAll() async {
@@ -75,6 +125,7 @@ class BackgroundChecks {
     if (!_initialised) return;
     try {
       await Workmanager().cancelByUniqueName(_uniqueName);
+      await Workmanager().cancelByUniqueName(_chainName);
     } catch (_) {}
   }
 
@@ -88,15 +139,59 @@ class BackgroundChecks {
     if (servers.isEmpty) return;
 
     final activeId = store.activeServerId;
-    final server = servers.firstWhere(
+    final active = servers.firstWhere(
       (s) => s.id == activeId,
       orElse: () => servers.first,
     );
 
-    final locale = store.localeCode == null ? const Locale('zh') : Locale(store.localeCode!);
-    final l10n = L10n(locale);
-    final sound = SoundOption.byId(store.soundId);
+    // A collection is one board on screen, so it has to be one board here too:
+    // checking only the active member silently ignored every sibling instance.
+    final members = active.inCollection
+        ? servers
+            .where((s) =>
+                s.collectionId == active.collectionId &&
+                !s.isManage &&
+                s.hasPublicPage)
+            .toList(growable: false)
+        : const <ServerConfig>[];
+    final targets = members.length > 1 ? members : <ServerConfig>[active];
 
+    final locale =
+        store.localeCode == null ? const Locale('zh') : Locale(store.localeCode!);
+    final l10n = L10n(locale);
+    final sound = SoundOption.byId(
+      store.soundId,
+      customUri: store.customSoundUriValue,
+      customLocalPath: store.customSoundPath,
+    );
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        // Same monochrome icon as the in-app path; adaptive launcher icons are
+        // rejected as small icons on API 36.
+        android: AndroidInitializationSettings('ic_stat_uk'),
+      ),
+    );
+
+    for (final server in targets) {
+      await _checkServer(
+        store: store,
+        server: server,
+        plugin: plugin,
+        l10n: l10n,
+        sound: sound,
+      );
+    }
+  }
+
+  static Future<void> _checkServer({
+    required SettingsStore store,
+    required ServerConfig server,
+    required FlutterLocalNotificationsPlugin plugin,
+    required L10n l10n,
+    required SoundOption sound,
+  }) async {
     final api = UkApi();
     StatusSnapshot snapshot;
     try {
@@ -109,13 +204,6 @@ class BackgroundChecks {
 
     final previous = await CacheStore.instance.readStatusMap(server.id);
     final isFirstRun = previous.isEmpty;
-
-    final plugin = FlutterLocalNotificationsPlugin();
-    await plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
 
     final next = <int, int>{};
     final now = DateTime.now();
@@ -186,8 +274,16 @@ class BackgroundChecks {
           channelDescription: 'Uptime Kuma monitor state changes',
           importance: Importance.max,
           priority: Priority.high,
+          icon: 'ic_stat_uk',
+          category: AndroidNotificationCategory.reminder,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
           playSound: true,
-          sound: RawResourceAndroidNotificationSound(sound.rawName),
+          // A user tone lives in the media store; a bundled one is a raw
+          // resource. Using rawName for a custom tone produced an empty id and
+          // therefore a silent notification.
+          sound: sound.contentUri != null
+              ? UriAndroidNotificationSound(sound.contentUri!)
+              : RawResourceAndroidNotificationSound(sound.rawName),
           enableVibration: true,
           color: isDown ? const Color(0xFFDC2626) : const Color(0xFF15A66A),
           styleInformation: const BigTextStyleInformation(''),

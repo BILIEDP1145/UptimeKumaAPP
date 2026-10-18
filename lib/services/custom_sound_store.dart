@@ -57,6 +57,28 @@ class CustomSoundStore {
     return (uri: '', path: file.path);
   }
 
+  /// Copies a media-store tone back into app storage.
+  ///
+  /// `MediaPlayer` cannot open a `content://media/...` URI through audioplayers
+  /// (it throws `setDataSource failed: status=0x80000000`), and older builds
+  /// never stored a private copy, so previews had nothing to play. This restores
+  /// a real file and the caller persists the new path.
+  static Future<String?> recover(String contentUri) async {
+    if (!Platform.isAndroid) return null;
+    if (!contentUri.startsWith('content://')) return null;
+    try {
+      final path = await _channel.invokeMethod<String>('recoverSound', {
+        'uri': contentUri,
+      });
+      if (path == null || path.isEmpty) return null;
+      return path;
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   /// Removes a previously installed tone from the media store.
   static Future<void> remove(String? contentUri) async {
     if (!Platform.isAndroid || contentUri == null || contentUri.isEmpty) return;

@@ -113,7 +113,7 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Uptime Kuma Mobile',
+                      'UptimeKumaAPP',
                       style: context.txt.labelMedium?.copyWith(color: tk.muted),
                     ),
                     const SizedBox(height: 2),

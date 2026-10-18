@@ -18,6 +18,7 @@ INCLUDE_FILES = [
 ]
 for density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']:
     INCLUDE_DIRS.append('android/app/src/main/res/mipmap-' + density)
+INCLUDE_DIRS.append('android/app/src/main/res/drawable')
 INCLUDE_DIRS.append('android/app/src/main/res/drawable-nodpi')
 INCLUDE_DIRS.append('android/app/src/main/res/mipmap-anydpi-v26')
 for name in ['chime', 'pulse', 'radar', 'marimba', 'siren']:

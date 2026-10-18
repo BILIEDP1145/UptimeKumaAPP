@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show Color;
-
-import 'package:flutter/foundation.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/l10n/l10n.dart';
@@ -18,6 +17,33 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 
+  /// Plays the tone ourselves while the app is in the foreground.
+  ///
+  /// Some Android 16 builds simply never start the channel sound, and no amount
+  /// of channel configuration fixes that. Playing locally guarantees the user
+  /// hears the alert while they are looking at the app.
+  final AudioPlayer _inAppPlayer = AudioPlayer();
+
+  Future<void> _playInApp(SoundOption sound) async {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    try {
+      await _inAppPlayer.stop();
+      if (sound.isCustom) {
+        final path = sound.localPath;
+        if (path == null || path.isEmpty || !File(path).existsSync()) return;
+        await _inAppPlayer.play(DeviceFileSource(path));
+      } else {
+        await _inAppPlayer.play(
+          AssetSource(sound.assetPath.replaceFirst('assets/', '')),
+        );
+      }
+    } catch (e) {
+      debugPrint('in-app tone failed: $e');
+    }
+  }
+
   bool _ready = false;
   bool _permission = false;
 
@@ -27,7 +53,10 @@ class NotificationService {
   Future<void> init() async {
     if (_ready) return;
     const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      // A flat white vector, not the launcher icon: since API 36 Android
+      // rejects adaptive icons as notification small icons, and a rejected
+      // icon means the notification never appears at all.
+      android: AndroidInitializationSettings('ic_stat_uk'),
     );
     try {
       await _plugin.initialize(settings: settings);
@@ -66,6 +95,92 @@ class NotificationService {
     }
   }
 
+  /// Channels are created explicitly instead of lazily on first `show`.
+  ///
+  /// A channel that was created silently (or rewritten by an OS upgrade) can
+  /// never get its sound back, so we make sure the one we are about to use
+  /// exists with the right audio and, when it does not, say so through
+  /// [channelIsSilent] instead of pretending everything is fine.
+  final Set<String> _channelsReady = {};
+
+  Future<void> ensureChannel(SoundOption sound, {bool silent = false}) async {
+    final id = sound.channelId();
+    if (_channelsReady.contains(id)) return;
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(
+        AndroidNotificationChannel(
+          id,
+          sound.labelEn,
+          description: 'Uptime Kuma monitor state changes',
+          importance: Importance.max,
+          playSound: !silent,
+          sound: _soundFor(sound, silent: silent),
+          enableVibration: !silent,
+        ),
+      );
+      _channelsReady.add(id);
+    } catch (e) {
+      debugPrint('ensureChannel failed: $e');
+    }
+  }
+
+  AndroidNotificationSound? _soundFor(SoundOption sound, {bool silent = false}) {
+    if (silent) return null;
+    return sound.contentUri != null
+        ? UriAndroidNotificationSound(sound.contentUri!)
+        : RawResourceAndroidNotificationSound(sound.rawName);
+  }
+
+  /// Plain-text snapshot of what Android actually reports. When a tone stops
+  /// working there is nothing to guess: either the permission is off, the
+  /// channel is missing, or its importance/sound is wrong — this prints which.
+  Future<List<String>> diagnose(SoundOption sound) async {
+    final lines = <String>[];
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      lines.add('plugin ready: $_ready');
+      lines.add('notifications enabled: ${await android?.areNotificationsEnabled() ?? false}');
+      lines.add('wanted channel: ${sound.channelId()}');
+      lines.add('wanted sound: ${sound.contentUri ?? sound.rawName}');
+      final channels = await android?.getNotificationChannels() ?? const [];
+      lines.add('channels: ${channels.length}');
+      for (final channel in channels) {
+        if (!channel.id.startsWith('uk_alerts')) continue;
+        lines.add(
+          '· ${channel.id} | importance=${channel.importance.name} '
+          '| playSound=${channel.playSound} | sound=${channel.sound ?? 'null'}',
+        );
+      }
+      final pending = await _plugin.pendingNotificationRequests();
+      lines.add('pending: ${pending.length}');
+    } catch (e) {
+      lines.add('diagnose failed: $e');
+    }
+    return lines;
+  }
+
+  /// True when the system reports no audio for the channel we would use — the
+  /// usual symptom of a channel that was silenced by the OS.
+  Future<bool> channelIsSilent(SoundOption sound) async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final channels = await android?.getNotificationChannels();
+      if (channels == null) return false;
+      for (final channel in channels) {
+        if (channel.id == sound.channelId()) {
+          return channel.sound == null;
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   AndroidNotificationDetails _details({
     required SoundOption sound,
     required bool isDown,
@@ -77,17 +192,21 @@ class NotificationService {
       channelDescription: 'Uptime Kuma monitor state changes',
       importance: Importance.max,
       priority: Priority.high,
-      category: AndroidNotificationCategory.alarm,
+      // Deliberately NOT CATEGORY_ALARM: since Android 15 that category wants
+      // exact-alarm permission we do not ask for, and without it the system
+      // keeps the notification but drops its sound. `reminder` is the correct
+      // semantic for "this monitor changed state".
+      category: AndroidNotificationCategory.reminder,
+      // `notification` is what Android expects here; `alarm` made the system
+      // refuse to play on devices whose DND rules only whitelist real alarms.
+      audioAttributesUsage: AudioAttributesUsage.notification,
       playSound: !silent,
-      sound: silent
-          ? null
-          : (sound.contentUri != null
-              ? UriAndroidNotificationSound(sound.contentUri!)
-              : RawResourceAndroidNotificationSound(sound.rawName)),
+      sound: _soundFor(sound, silent: silent),
       enableVibration: !silent,
       enableLights: true,
       color: isDown ? const Color(0xFFDC2626) : const Color(0xFF15A66A),
       styleInformation: const BigTextStyleInformation(''),
+      icon: 'ic_stat_uk',
       ticker: 'Uptime Kuma',
       autoCancel: true,
       ongoing: false,
@@ -104,8 +223,11 @@ class NotificationService {
     String? detail,
     String? downtime,
     int? notificationId,
+    bool inApp = false,
   }) async {
     if (!_ready) await init();
+    await ensureChannel(sound);
+    if (inApp) unawaited(_playInApp(sound));
     final body = l10n.notifDownBody(
       status: l10n.statusDown,
       startTime: _formatTime(startedAt),
@@ -131,8 +253,11 @@ class NotificationService {
     String? downtime,
     String? detail,
     int? notificationId,
+    bool inApp = false,
   }) async {
     if (!_ready) await init();
+    await ensureChannel(sound);
+    if (inApp) unawaited(_playInApp(sound));
     final body = l10n.notifUpBody(
       status: l10n.statusUp,
       startTime: _formatTime(recoveredAt),
@@ -154,6 +279,10 @@ class NotificationService {
     required SoundOption sound,
   }) async {
     if (!_ready) await init();
+    await ensureChannel(sound);
+    // The test button must produce sound even when the system swallows the
+    // notification audio, otherwise it is impossible to tell the two apart.
+    unawaited(_playInApp(sound));
     await _show(
       id: 900001,
       title: l10n.testNotifTitle,

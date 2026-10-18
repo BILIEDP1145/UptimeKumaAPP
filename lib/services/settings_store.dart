@@ -17,6 +17,8 @@ class PrefKeys {
   static const soundId = 'notif_sound';
   static const pollSeconds = 'poll_seconds';
   static const backgroundChecks = 'bg_checks';
+  static const bgInterval = 'bg_interval_minutes';
+  static const silentLogin = 'silent_login';
   static const servers = 'servers_json';
   static const activeServer = 'active_server_id';
   static const iconVariant = 'icon_variant';
@@ -36,6 +38,7 @@ class PrefKeys {
   static const glass = 'ui_glass';
   static const headerCompact = 'header_compact';
   static const headerGlass = 'header_glass';
+  static const inAppSound = 'in_app_sound';
   static const nameClampChars = 'name_clamp_chars';
   static const guideDone = 'guide_done';
 }
@@ -116,6 +119,20 @@ class SettingsStore {
   bool get backgroundChecks => _prefs.getBool(PrefKeys.backgroundChecks) ?? true;
 
   set backgroundChecks(bool v) => _prefs.setBool(PrefKeys.backgroundChecks, v);
+
+  /// How often the background worker polls, in minutes.
+  ///
+  /// WorkManager's *periodic* floor is 15 minutes, so anything shorter is
+  /// scheduled as a chain of one-shot tasks instead.
+  int get backgroundInterval => _prefs.getInt(PrefKeys.bgInterval) ?? 5;
+
+  set backgroundInterval(int v) => _prefs.setInt(PrefKeys.bgInterval, v);
+
+  /// Keep the management password in the keystore so an expired session can be
+  /// renewed without asking again.
+  bool get silentLogin => _prefs.getBool(PrefKeys.silentLogin) ?? true;
+
+  set silentLogin(bool v) => _prefs.setBool(PrefKeys.silentLogin, v);
 
   String? get serversJson => _prefs.getString(PrefKeys.servers);
 
@@ -213,6 +230,12 @@ class SettingsStore {
   bool get headerGlass => _prefs.getBool(PrefKeys.headerGlass) ?? false;
 
   set headerGlass(bool v) => _prefs.setBool(PrefKeys.headerGlass, v);
+
+  /// Also play the tone from inside the app while it is in the foreground.
+  /// Covers devices whose notification channel audio never starts.
+  bool get inAppSound => _prefs.getBool(PrefKeys.inAppSound) ?? true;
+
+  set inAppSound(bool v) => _prefs.setBool(PrefKeys.inAppSound, v);
 
   bool get nameClamp => _prefs.getBool(PrefKeys.nameClamp) ?? true;
 

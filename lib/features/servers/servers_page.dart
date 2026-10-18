@@ -9,6 +9,7 @@ import '../../core/widgets/app_card.dart';
 import '../../data/models/server_config.dart';
 import '../../data/models/share_code.dart';
 import '../../state/app_state.dart';
+import 'import_dialog.dart';
 import 'server_edit_page.dart';
 
 /// Instance list. Instances that share a collection are rendered as one card:
@@ -169,7 +170,7 @@ class ServersPage extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _showImport(context, label: l.importInstance);
+                  showImportDialog(context, title: l.importInstance);
                 },
               ),
               ListTile(
@@ -181,7 +182,7 @@ class ServersPage extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _showImport(context, label: l.importCollection);
+                  showImportDialog(context, title: l.importCollection);
                 },
               ),
             ],
@@ -195,76 +196,6 @@ class ServersPage extends StatelessWidget {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => ServerEditPage(server: server)),
     );
-  }
-
-  // Import -----------------------------------------------------------------
-
-  static Future<void> _showImport(
-    BuildContext context, {
-    required String label,
-  }) async {
-    final controller = TextEditingController();
-    final app = context.read<AppState>();
-    final l = L10n.of(context);
-    final tk = context.tk;
-    final messenger = ScaffoldMessenger.of(context);
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(label),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.importHint,
-                style: ctx.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: controller,
-                minLines: 4,
-                maxLines: 8,
-                autocorrect: false,
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                decoration: const InputDecoration(hintText: 'uptimekuma://…'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final text = controller.text;
-              final payloads = <SharePayload>[];
-              for (final line in text.split(RegExp(r'[\r\n]+'))) {
-                if (line.trim().isEmpty) continue;
-                final payload = ShareCode.parse(line);
-                if (payload != null) payloads.add(payload);
-              }
-              if (payloads.isEmpty) {
-                messenger.showSnackBar(SnackBar(content: Text(l.importInvalid)));
-                return;
-              }
-              Navigator.pop(ctx);
-              final added = await app.importPayloads(payloads);
-              messenger.showSnackBar(
-                SnackBar(content: Text(l.importedCount(added))),
-              );
-            },
-            child: Text(l.importAction),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
   }
 
   static Future<void> _copy(BuildContext context, String code) async {

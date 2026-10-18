@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/api/uk_socket.dart';
+import '../services/credential_store.dart';
 import '../data/models/admin_models.dart';
 import '../data/models/server_config.dart';
 import '../data/models/status_page.dart';
@@ -88,13 +89,46 @@ class AdminController extends ChangeNotifier {
         await refresh();
         return;
       }
+      // The JWT expired (typically after the app sat in the background). Try
+      // the stored password before bothering the user.
+      if (await _silentSignIn(server)) return;
       _needsCredentials = true;
       notifyListeners();
       return;
     }
 
+    if (await _silentSignIn(server)) return;
     _needsCredentials = true;
     notifyListeners();
+  }
+
+  /// Signs in with the keystore password. Returns false when the feature is off,
+  /// nothing is stored, or the server demands a second factor.
+  Future<bool> _silentSignIn(ServerConfig server) async {
+    if (!_app.silentLogin) return false;
+    if (server.username.isEmpty) return false;
+    final password = await CredentialStore.read(server.id);
+    if (password == null || password.isEmpty) return false;
+
+    _connecting = true;
+    notifyListeners();
+    final result = await _admin!.signIn(
+      username: server.username,
+      password: password,
+    );
+    _connecting = false;
+    if (!result.ok) {
+      notifyListeners();
+      return false;
+    }
+
+    _signedIn = true;
+    _needsCredentials = false;
+    await _app.updateServer(server.copyWith(token: result.token ?? ''));
+    _server = _app.servers.firstWhere((s) => s.id == server.id, orElse: () => server);
+    notifyListeners();
+    await refresh();
+    return true;
   }
 
   /// First-time sign-in. Stores the JWT on success, never the password.

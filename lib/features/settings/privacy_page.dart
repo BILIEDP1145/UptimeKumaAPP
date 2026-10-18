@@ -16,6 +16,9 @@ class PrivacyPage extends StatefulWidget {
 }
 
 class _PrivacyPageState extends State<PrivacyPage> {
+  bool _testingDoh = false;
+  String? _dohTestResult;
+  bool _dohTestOk = false;
   late final TextEditingController _ua;
   late final TextEditingController _doh;
 
@@ -25,6 +28,29 @@ class _PrivacyPageState extends State<PrivacyPage> {
     final app = context.read<AppState>();
     _ua = TextEditingController(text: app.userAgent);
     _doh = TextEditingController(text: app.dohUrl);
+  }
+
+  Future<void> _testDoh() async {
+    final l = L10n.of(context);
+    final entered = _doh.text.trim();
+    final endpoint = entered.isEmpty ? DohResolver.defaults.first : entered;
+    setState(() {
+      _testingDoh = true;
+      _dohTestResult = null;
+    });
+    final result = await DohResolver.probe(endpoint);
+    if (!mounted) return;
+    setState(() {
+      _testingDoh = false;
+      _dohTestOk = result.ok;
+      if (result.ok) {
+        _dohTestResult = l.dohTestOk(result.address ?? '');
+      } else if (result.status != null) {
+        _dohTestResult = l.dohTestStatus(result.status!);
+      } else {
+        _dohTestResult = l.dohTestError(result.error ?? '—');
+      }
+    });
   }
 
   @override
@@ -67,6 +93,26 @@ class _PrivacyPageState extends State<PrivacyPage> {
                   ),
                   subtitle: Text(
                     l.privacyUxBody,
+                    style: context.txt.labelSmall?.copyWith(
+                      color: tk.muted,
+                      height: 1.4,
+                    ),
+                  ),
+                  isThreeLine: true,
+                ),
+                Divider(height: 1, color: tk.hairline, indent: 16, endIndent: 16),
+                SwitchListTile(
+                  value: app.silentLogin,
+                  onChanged: app.setSilentLogin,
+                  title: Text(
+                    l.silentLoginTitle,
+                    style: context.txt.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: tk.textStrong,
+                    ),
+                  ),
+                  subtitle: Text(
+                    l.silentLoginBody,
                     style: context.txt.labelSmall?.copyWith(
                       color: tk.muted,
                       height: 1.4,
@@ -130,17 +176,39 @@ class _PrivacyPageState extends State<PrivacyPage> {
                       helperMaxLines: 2,
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _doh.clear();
-                        app.setDohUrl('');
-                      },
-                      icon: const Icon(Icons.restart_alt_rounded, size: 15),
-                      label: Text(l.resetDefault),
-                    ),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: _testingDoh ? null : _testDoh,
+                        icon: _testingDoh
+                            ? const SizedBox(
+                                width: 13,
+                                height: 13,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.wifi_tethering_rounded, size: 15),
+                        label: Text(l.dohTest),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          _doh.clear();
+                          app.setDohUrl('');
+                          setState(() => _dohTestResult = null);
+                        },
+                        icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                        label: Text(l.resetDefault),
+                      ),
+                    ],
                   ),
+                  if (_dohTestResult != null)
+                    Text(
+                      _dohTestResult!,
+                      style: context.txt.labelSmall?.copyWith(
+                        color: _dohTestOk ? tk.statusUp : tk.statusDown,
+                        height: 1.4,
+                      ),
+                    ),
                 ],
               ),
             ),

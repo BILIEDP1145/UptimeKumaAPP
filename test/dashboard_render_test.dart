@@ -42,6 +42,16 @@ void main() {
         footerText: 'Infrastructure by ZAKOFLARE',
       ),
       groups: [
+        // Kuma publishes a parent group as a list of `type == 'group'` headers;
+        // it must not render as an empty card.
+        const MonitorGroup(
+          id: 99,
+          name: 'Overview',
+          monitors: [
+            Monitor(id: 90, name: 'Public service', type: 'group'),
+            Monitor(id: 91, name: 'ServiceNodeCN', type: 'group'),
+          ],
+        ),
         MonitorGroup(
           id: 1,
           name: 'Public service',
@@ -191,6 +201,18 @@ void main() {
     await tester.tap(find.text('Public service').first);
     await tester.pumpAndSettle();
     expect(find.text('官网[LNTL]'), findsOneWidget);
+  });
+
+  testWidgets('a group with no real monitors is not rendered', (tester) async {
+    await pumpDashboard(
+      tester,
+      style: UiStyle.kuma,
+      brightness: Brightness.light,
+      size: const Size(412, 915),
+      locale: const Locale('zh'),
+    );
+    expect(find.text('Overview'), findsNothing);
+    expect(find.text('Public service'), findsOneWidget);
   });
 
   testWidgets('a failing monitor is surfaced in the header', (tester) async {
