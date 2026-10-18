@@ -86,6 +86,10 @@ class MainActivity : FlutterActivity() {
                             publishSoundFlow(path, name, result)
                         }
                     }
+                    "recoverSound" -> {
+                        val uri = call.argument<String>("uri")
+                        result.success(if (uri == null) null else recoverSound(uri))
+                    }
                     "deleteSound" -> {
                         val uri = call.argument<String>("uri")
                         if (uri != null) {
@@ -254,6 +258,27 @@ class MainActivity : FlutterActivity() {
      * `WRITE_EXTERNAL_STORAGE`, so ask for it first and answer the original
      * channel call once the dialog is dismissed.
      */
+    /**
+     * Copies a previously published tone back out of the media store.
+     *
+     * Older builds only stored the `content://` URI and lost the private copy,
+     * which left previews with nothing to play (MediaPlayer cannot open a
+     * media-store URI through audioplayers). This restores a real file.
+     */
+    private fun recoverSound(uriString: String): String? {
+        return try {
+            val uri = Uri.parse(uriString)
+            val dir = File(filesDir, "sounds").apply { mkdirs() }
+            val target = File(dir, "recovered_${System.currentTimeMillis()}.wav")
+            contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+            if (target.length() > 0) target.absolutePath else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun publishSoundFlow(path: String, displayName: String, result: MethodChannel.Result) {
         val needsPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
             checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
