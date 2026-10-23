@@ -674,20 +674,16 @@ class L10n {
         'Android cannot swap the launcher bitmap at runtime, so the custom image is pinned to the home screen as its own shortcut.',
         'Android 无法在运行时替换桌面图标位图，因此自定义图片会以独立快捷方式固定到桌面。',
       );
-  String get iconOfficialNote => _t(
-        'Default icon is the official Uptime Kuma mark.',
-        '默认图标为 Uptime Kuma 官方标志。',
-      );
   String get iconApplying => _t('Applying…', '应用中…');
   String get iconDownloadFailed => _t('Could not download that image', '该图片无法下载');
   String get iconPresetOnly => _t(
-        'Only these four icons are available: Android does not allow an app to '
-            'swap its launcher icon for a custom image at runtime.',
-        '仅提供这四套图标：Android 不允许应用在运行时把桌面图标换成自定义图片。',
+        'Preset icons only: Android does not allow an app to swap its launcher '
+            'icon for a custom image at runtime.',
+        '仅提供预设图标：Android 不允许应用在运行时把桌面图标换成自定义图片。',
       );
   String get iconPinStarted => _t('Confirm the shortcut on your launcher', '请在桌面确认添加');
   String get soundUpload => _t('Upload tone', '上传提示音');
-  String get soundUploadHint => _t('wav / mp3 / ogg / m4a / aac / flac', 'wav / mp3 / ogg / m4a / aac / flac');
+  String get soundUploadHint => _t('mp3 / wav', 'mp3 / wav');
   String get soundInstalled => _t('Tone installed', '提示音已安装');
   String get soundInstallFailed => _t('Could not install that file', '该文件无法使用');
   String get soundPreviewOnly => _t(

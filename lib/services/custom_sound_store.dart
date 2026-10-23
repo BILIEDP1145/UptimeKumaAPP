@@ -15,7 +15,10 @@ class CustomSoundStore {
 
   static const MethodChannel _channel = MethodChannel('com.zakoflare.uptimekuma/media');
 
-  static const _allowed = {'wav', 'mp3', 'ogg', 'm4a', 'aac', 'flac'};
+  /// Only the two formats people actually use. Anything else was dead weight:
+  /// Android's channel sound accepts them but every extra codec needs its own
+  /// decoder path and nobody has ever picked one.
+  static const _allowed = {'wav', 'mp3'};
 
   static bool isSupportedExtension(String path) {
     final ext = path.split('.').last.toLowerCase();

@@ -162,7 +162,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     final picked = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['wav', 'mp3', 'ogg', 'm4a', 'aac', 'flac'],
+      allowedExtensions: const ['wav', 'mp3'],
     );
     final source = picked.isEmpty ? null : picked.first.path;
     if (source == null) return;

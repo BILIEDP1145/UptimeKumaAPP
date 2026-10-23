@@ -63,22 +63,6 @@ class _IconPageState extends State<IconPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.verified_outlined, size: 15, color: tk.accentInk),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        l.iconOfficialNote,
-                        style: context.txt.labelSmall?.copyWith(
-                          color: tk.muted,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
                 GridView.count(
                   crossAxisCount: 4,
                   shrinkWrap: true,
