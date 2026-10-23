@@ -37,6 +37,7 @@ class AppState extends ChangeNotifier {
   int _backgroundInterval = 5;
   bool _silentLogin = true;
   bool _persistentNotification = false;
+  bool _foregroundService = false;
   String _soundId = 'chime';
   String _customSoundUri = '';
   String _customSoundPath = '';
@@ -76,6 +77,7 @@ class AppState extends ChangeNotifier {
   int get backgroundInterval => _backgroundInterval;
   bool get silentLogin => _silentLogin;
   bool get persistentNotification => _persistentNotification;
+  bool get foregroundService => _foregroundService;
   SoundOption get sound => SoundOption.byId(
         _soundId,
         customUri: _customSoundUri,
@@ -163,6 +165,7 @@ class AppState extends ChangeNotifier {
     _backgroundInterval = _store.backgroundInterval;
     _silentLogin = _store.silentLogin;
     _persistentNotification = _store.persistentNotification;
+    _foregroundService = _store.foregroundService;
     _soundId = _store.soundId;
     _pollSeconds = _store.pollSeconds;
     _iconVariant = _store.iconVariant;
@@ -253,6 +256,12 @@ class AppState extends ChangeNotifier {
   void setNotifyUp(bool v) {
     _notifyOnUp = v;
     _store.notifyOnUp = v;
+    notifyListeners();
+  }
+
+  void setForegroundService(bool v) {
+    _foregroundService = v;
+    _store.foregroundService = v;
     notifyListeners();
   }
 

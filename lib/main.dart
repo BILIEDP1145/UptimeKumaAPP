@@ -6,6 +6,7 @@ import 'core/l10n/l10n.dart';
 
 import 'app.dart';
 import 'data/cache/image_cache.dart';
+import 'services/foreground_service.dart';
 import 'services/notification_service.dart';
 import 'services/settings_store.dart';
 import 'services/ux_report.dart';
@@ -23,12 +24,17 @@ Future<void> main() async {
 
   await NotificationService.instance.init();
 
-  // The pinned entry does not survive a process restart, so restore it here.
-  if (appState.persistentNotification &&
-      NotificationService.instance.permissionGranted) {
-    unawaited(NotificationService.instance.showPersistent(
-      l10n: L10n(Locale(store.localeCode ?? 'zh')),
-    ));
+  // Neither the pinned entry nor the service survives a process restart.
+  final startupL10n = L10n(Locale(store.localeCode ?? 'zh'));
+  if (NotificationService.instance.permissionGranted) {
+    if (appState.foregroundService) {
+      unawaited(ForegroundService.start(
+        title: startupL10n.persistentTitle,
+        body: startupL10n.persistentBody,
+      ));
+    } else if (appState.persistentNotification) {
+      unawaited(NotificationService.instance.showPersistent(l10n: startupL10n));
+    }
   }
 
   runApp(UptimeKumaApp(appState: appState));

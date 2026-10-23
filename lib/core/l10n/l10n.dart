@@ -235,6 +235,15 @@ class L10n {
         '在通知栏保留一条静默且无法滑动清除的条目，用来确认监控仍在运行。'
             '进程结束后它会随之消失。',
       );
+  String get foregroundServiceTitle => _t('Foreground service', '前台服务');
+  String get foregroundServiceBody => _t(
+        'Runs the pinned entry from a foreground service: it can no longer be '
+            'swiped away, and Android is far less likely to kill the polling '
+            'process. Uses the specialUse type, so it is not capped like '
+            'dataSync.',
+        '由前台服务承载常驻通知：无法滑动清除，系统也更不容易杀掉轮询进程。'
+            '使用 specialUse 类型，不受 dataSync 的每日时长限制。',
+      );
   String get openSourceTitle => _t('Open-source licence', '开源许可');
   String get openSourceBody => _t(
         'This app is distributed under the GNU General Public License v3.0.',

@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../services/background_checks.dart';
 import '../../services/notification_service.dart';
 import '../../services/custom_sound_store.dart';
+import '../../services/foreground_service.dart';
 import '../../services/sound_library.dart';
 import '../../state/app_state.dart';
 
@@ -505,6 +506,35 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       return;
                     }
                     await NotificationService.instance.showPersistent(l10n: l);
+                  },
+                ),
+                Divider(height: 20, color: tk.hairline),
+                _SwitchRow(
+                  title: l.foregroundServiceTitle,
+                  subtitle: l.foregroundServiceBody,
+                  value: app.foregroundService,
+                  onChanged: (v) async {
+                    app.setForegroundService(v);
+                    if (v) {
+                      final granted = NotificationService.instance.permissionGranted ||
+                          await NotificationService.instance.requestPermission();
+                      if (!granted) {
+                        app.setForegroundService(false);
+                        return;
+                      }
+                      // The service owns the entry from now on, so drop the
+                      // plain one instead of showing two.
+                      await NotificationService.instance.hidePersistent();
+                      await ForegroundService.start(
+                        title: l.persistentTitle,
+                        body: l.persistentBody,
+                      );
+                    } else {
+                      await ForegroundService.stop();
+                      if (app.persistentNotification) {
+                        await NotificationService.instance.showPersistent(l10n: l);
+                      }
+                    }
                   },
                 ),
                 if (app.backgroundChecks && Platform.isAndroid) ...[

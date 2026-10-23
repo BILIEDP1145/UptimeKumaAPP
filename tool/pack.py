@@ -14,6 +14,7 @@ INCLUDE_FILES = [
     'android/app/build.gradle.kts',
     'android/app/src/main/AndroidManifest.xml',
     'android/app/src/main/kotlin/com/zakoflare/uptime_kuma_app/MainActivity.kt',
+    'android/app/src/main/kotlin/com/zakoflare/uptime_kuma_app/MonitorForegroundService.kt',
     'android/app/src/main/res/values/strings.xml',
 ]
 for density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']:

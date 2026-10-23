@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Only needed on Android 9 and below, where publishing an uploaded alert
          tone into the shared Notifications collection requires it. -->
     <uses-permission
@@ -44,6 +46,18 @@
                 <data android:scheme="uptimekuma" />
             </intent-filter>
         </activity>
+
+        <!-- Keeps the pinned notification genuinely non-dismissible and the
+             polling process alive. `specialUse` has no daily cap (unlike
+             dataSync on Android 15). -->
+        <service
+            android:name=".MonitorForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Uptime monitoring: keeps the pinned status notification and alert polling alive" />
+        </service>
 
         <activity-alias
             android:name=".IconDefault"

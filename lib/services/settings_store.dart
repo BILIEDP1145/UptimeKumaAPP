@@ -20,6 +20,7 @@ class PrefKeys {
   static const bgInterval = 'bg_interval_minutes';
   static const silentLogin = 'silent_login';
   static const persistentNotification = 'persistent_notification';
+  static const foregroundService = 'foreground_service';
   static const servers = 'servers_json';
   static const activeServer = 'active_server_id';
   static const iconVariant = 'icon_variant';
@@ -141,6 +142,11 @@ class SettingsStore {
 
   set persistentNotification(bool v) =>
       _prefs.setBool(PrefKeys.persistentNotification, v);
+
+  /// Run a foreground service so the pinned entry cannot be dismissed.
+  bool get foregroundService => _prefs.getBool(PrefKeys.foregroundService) ?? false;
+
+  set foregroundService(bool v) => _prefs.setBool(PrefKeys.foregroundService, v);
 
   String? get serversJson => _prefs.getString(PrefKeys.servers);
 

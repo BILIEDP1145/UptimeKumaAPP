@@ -36,6 +36,7 @@ class MainActivity : FlutterActivity() {
     private val mediaChannel = "com.zakoflare.uptimekuma/media"
     private val appChannel = "com.zakoflare.uptimekuma/app"
     private val linkChannelName = "com.zakoflare.uptimekuma/links"
+    private val serviceChannelName = "com.zakoflare.uptimekuma/service"
 
     /// Held so `onNewIntent` can push a link into the running Flutter engine.
     private var linkChannel: MethodChannel? = null
@@ -113,6 +114,25 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "apkSigningHash" -> result.success(signingHash())
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, serviceChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        MonitorForegroundService.start(
+                            this,
+                            call.argument<String>("title") ?: "UptimeKumaAPP",
+                            call.argument<String>("body") ?: "",
+                        )
+                        result.success(true)
+                    }
+                    "stop" -> {
+                        MonitorForegroundService.stop(this)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
