@@ -160,10 +160,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final messenger = ScaffoldMessenger.of(context);
     final app = context.read<AppState>();
 
-    final picked = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['wav', 'mp3', 'ogg', 'm4a', 'aac', 'flac'],
-    );
+    // `FileType.custom` maps every extension to a MIME type through the
+    // system MimeTypeMap and passes them to the picker as EXTRA_MIME_TYPES.
+    // Android's map has no entry for m4a, so it is dropped from the filter
+    // and Android 15's file manager hides the file. Pick anything instead —
+    // CustomSoundStore still rejects unsupported formats on install.
+    final picked = await FilePicker.pickFiles(type: FileType.any);
     final source = picked.isEmpty ? null : picked.first.path;
     if (source == null) return;
 
