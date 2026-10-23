@@ -120,7 +120,7 @@ class _Mark extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.asset(
-        'assets/images/icon_official.png',
+        'assets/images/icon_default.png',
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => Container(
           color: tk.accent,

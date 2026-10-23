@@ -15,7 +15,8 @@ class IconChanger {
   static bool get supported => Platform.isAndroid;
 
   static const List<IconVariant> variants = [
-    IconVariant('default', 'Official', '官方', 'icon_official'),
+    IconVariant('default', 'Default', '默认', 'icon_default'),
+    IconVariant('official', 'Official', '官方', 'icon_official'),
     IconVariant('emerald', 'Emerald', '翡翠', 'icon_emerald'),
     IconVariant('midnight', 'Midnight', '午夜', 'icon_midnight'),
     IconVariant('crimson', 'Crimson', '朱红', 'icon_crimson'),

@@ -1,7 +1,7 @@
 name: uptime_kuma_app
 description: A mobile client to manage and monitor self-hosted Uptime Kuma instances.
 publish_to: 'none'
-version: 1.4.2+26
+version: 1.4.3+27
 
 environment:
   sdk: ^3.13.0

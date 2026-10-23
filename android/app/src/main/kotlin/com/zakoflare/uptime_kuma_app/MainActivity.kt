@@ -48,6 +48,7 @@ class MainActivity : FlutterActivity() {
 
     private val aliases = linkedMapOf(
         "default" to "IconDefault",
+        "official" to "IconOfficial",
         "emerald" to "IconEmerald",
         "midnight" to "IconMidnight",
         "crimson" to "IconCrimson",

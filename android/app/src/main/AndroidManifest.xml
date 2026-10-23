@@ -73,6 +73,19 @@
         </activity-alias>
 
         <activity-alias
+            android:name=".IconOfficial"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name_official"
+            android:icon="@mipmap/ic_launcher_official"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
             android:name=".IconEmerald"
             android:enabled="false"
             android:exported="true"
