@@ -1,0 +1,39 @@
+name: uptime_kuma_app
+description: A mobile client to manage and monitor self-hosted Uptime Kuma instances.
+publish_to: 'none'
+version: 1.4.0+24
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  provider: ^6.1.5
+  http: ^1.6.0
+  shared_preferences: ^2.5.6
+  path_provider: ^2.1.6
+  flutter_local_notifications: ^22.3.2
+  flutter_secure_storage: ^11.2.0
+  workmanager: ^0.10.10
+  image_picker: ^1.2.4
+  audioplayers: ^6.8.1
+  socket_io_client: ^3.1.6
+  flutter_svg: ^2.3.0
+  file_picker: ^13.1.0
+  package_info_plus: ^10.2.2
+  crypto: ^3.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/sounds/
+    - assets/images/
+    - assets/licenses/
