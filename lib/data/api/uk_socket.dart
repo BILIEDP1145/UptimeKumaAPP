@@ -238,8 +238,31 @@ class UkAdmin {
       _socket = socket;
       _sub?.cancel();
       _sub = socket.events.listen(_absorb);
+
+      // A freshly opened socket is NOT authenticated. Reconnecting here without
+      // replaying the token is what produced "You are not logged in." after the
+      // app had been in the background: the socket came back, the session did
+      // not, and every write failed.
+      if (_token.isNotEmpty) {
+        final res = await socket.ack('loginByToken', _token);
+        if (!(res is Map && res['ok'] == true)) {
+          // Expired: clear it so the caller can fall back to a password login.
+          _token = '';
+        }
+      }
     }
     return _socket!;
+  }
+
+  /// True when the server currently accepts our token.
+  bool get hasSession => _token.isNotEmpty;
+
+  /// Drops the socket so the next call reconnects and re-authenticates.
+  Future<void> reconnect() async {
+    _socket?.dispose();
+    _socket = null;
+    await _sub?.cancel();
+    _sub = null;
   }
 
   void _absorb(UkSocketEvent event) {

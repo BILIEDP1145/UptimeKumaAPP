@@ -27,7 +27,8 @@ class UptimeKumaApp extends StatefulWidget {
   State<UptimeKumaApp> createState() => _UptimeKumaAppState();
 }
 
-class _UptimeKumaAppState extends State<UptimeKumaApp> {
+class _UptimeKumaAppState extends State<UptimeKumaApp>
+    with WidgetsBindingObserver {
   late final StatusController _status;
   late final AdminController _admin;
 
@@ -57,6 +58,7 @@ class _UptimeKumaAppState extends State<UptimeKumaApp> {
     _lastDohUrl = widget.appState.dohUrl;
     _lastUa = widget.appState.userAgent;
     widget.appState.addListener(_onPrefsChanged);
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_initDeepLinks());
     // Defer until the first frame so navigation/pages exist before data lands.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -146,8 +148,19 @@ class _UptimeKumaAppState extends State<UptimeKumaApp> {
     );
   }
 
+  /// Coming back from the background: the socket may have died and the session
+  /// with it, so re-authenticate before the user hits "save" and sees
+  /// "You are not logged in.".
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(_admin.ensureSession());
+    unawaited(_status.attach(widget.appState.activeServer));
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     _uaDebounce?.cancel();
     widget.appState.removeListener(_onPrefsChanged);

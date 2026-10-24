@@ -185,6 +185,17 @@ class AdminController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Called when the app returns to the foreground: a socket that died in the
+  /// background is re-authenticated before the user touches a form.
+  Future<void> ensureSession() async {
+    if (_server == null || _admin == null) return;
+    try {
+      await refresh();
+    } catch (_) {
+      await _restoreSession();
+    }
+  }
+
   Future<void> refresh() async {
     final admin = _admin;
     if (admin == null || !_signedIn) return;
@@ -206,45 +217,96 @@ class AdminController extends ChangeNotifier {
 
   // Mutations --------------------------------------------------------------
 
-  Future<void> saveMonitor(MonitorDraft draft) async {
+  /// Runs a server mutation, repairing the session once if the server says we
+  /// are not logged in.
+  ///
+  /// The socket reconnects on its own after a background trip, but the new
+  /// connection starts unauthenticated. Even with the token replay in
+  /// [UkAdmin._ensure], a server-side expiry can still bite mid-session, so a
+  /// rejected write gets one silent re-auth and one retry instead of surfacing
+  /// "You are not logged in." to the form.
+  Future<void> _mutate(Future<void> Function(UkAdmin admin) action) async {
     final admin = _admin;
     if (admin == null) throw UkSocketException('Not signed in');
-    if (draft.isNew) {
-      await admin.addMonitor(draft.toPayload());
-    } else {
-      await admin.editMonitor(draft.toPayload());
+    try {
+      await action(admin);
+    } catch (e) {
+      if (!_isAuthFailure(e)) rethrow;
+      final restored = await _restoreSession();
+      if (!restored) rethrow;
+      final fresh = _admin;
+      if (fresh == null) rethrow;
+      await action(fresh);
     }
+  }
+
+  static bool _isAuthFailure(Object error) {
+    if (error is! UkSocketException) return false;
+    final message = error.message.toLowerCase();
+    return message.contains('logged in') ||
+        message.contains('not signed in') ||
+        message.contains('not logged');
+  }
+
+  /// Re-establishes the session: token first, stored password second.
+  Future<bool> _restoreSession() async {
+    final server = _server;
+    final admin = _admin;
+    if (server == null || admin == null) return false;
+
+    await admin.reconnect();
+    final latest = _app.servers.firstWhere(
+      (s) => s.id == server.id,
+      orElse: () => server,
+    );
+    if (latest.token.isNotEmpty && await admin.resume(latest.token)) {
+      return true;
+    }
+    if (await _silentSignIn(server)) return true;
+    _needsCredentials = true;
+    notifyListeners();
+    return false;
+  }
+
+  Future<void> saveMonitor(MonitorDraft draft) async {
+    await _mutate((admin) async {
+      if (draft.isNew) {
+        await admin.addMonitor(draft.toPayload());
+      } else {
+        await admin.editMonitor(draft.toPayload());
+      }
+    });
     await refresh();
   }
 
   Future<void> deleteMonitor(int id) async {
-    await _admin?.deleteMonitor(id);
+    await _mutate((admin) => admin.deleteMonitor(id));
     await refresh();
   }
 
   Future<void> setMonitorActive(int id, bool active) async {
-    await _admin?.setMonitorActive(id, active);
+    await _mutate((admin) => admin.setMonitorActive(id, active));
     await refresh();
   }
 
   Future<void> saveNotification(Map<String, dynamic> payload, {int? id}) async {
-    await _admin?.addNotification(payload, id: id);
+    await _mutate((admin) => admin.addNotification(payload, id: id));
     await refresh();
   }
 
   Future<void> deleteNotification(int id) async {
-    await _admin?.deleteNotification(id);
+    await _mutate((admin) => admin.deleteNotification(id));
     await refresh();
   }
 
   /// Creates a bare status page. Monitors are attached to it from the web UI.
   Future<void> addStatusPage({required String title, required String slug}) async {
-    await _admin?.addStatusPage(title: title, slug: slug);
+    await _mutate((admin) => admin.addStatusPage(title: title, slug: slug));
     await refresh();
   }
 
   Future<void> testNotification(Map<String, dynamic> notification) async {
-    await _admin?.testNotification(notification);
+    await _mutate((admin) => admin.testNotification(notification));
   }
 
   Future<void> postIncident({
@@ -253,12 +315,12 @@ class AdminController extends ChangeNotifier {
     required String content,
     required String style,
   }) async {
-    await _admin?.postIncident(
-      slug: slug,
-      title: title,
-      content: content,
-      style: style,
-    );
+    await _mutate((admin) => admin.postIncident(
+          slug: slug,
+          title: title,
+          content: content,
+          style: style,
+        ));
   }
 
   /// Builds a dashboard snapshot out of the admin payload, so instances with
