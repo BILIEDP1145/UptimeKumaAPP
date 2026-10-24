@@ -69,6 +69,13 @@ class SoundOption {
       rawName: 'alert_ice',
       ext: 'mp3',
     ),
+    SoundOption(
+      id: 'boom',
+      labelEn: 'Boom 💥',
+      labelZh: '爆响 💥',
+      rawName: 'alert_boom',
+      ext: 'mp3',
+    ),
   ];
 
   static const String customId = 'custom';

@@ -23,7 +23,8 @@ INCLUDE_DIRS.append('android/app/src/main/res/drawable')
 INCLUDE_DIRS.append('android/app/src/main/res/drawable-nodpi')
 INCLUDE_DIRS.append('android/app/src/main/res/mipmap-anydpi-v26')
 for name, ext in [('chime', 'wav'), ('pulse', 'wav'), ('radar', 'wav'),
-                  ('marimba', 'wav'), ('siren', 'wav'), ('ice', 'mp3')]:
+                  ('marimba', 'wav'), ('siren', 'wav'), ('ice', 'mp3'),
+                  ('boom', 'mp3')]:
     INCLUDE_FILES.append('android/app/src/main/res/raw/alert_%s.%s' % (name, ext))
 
 SKIP_EXT = {'.iml', '.lock'}
