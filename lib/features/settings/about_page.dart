@@ -98,10 +98,12 @@ class _AboutPageState extends State<AboutPage> {
                   width: 66,
                   height: 66,
                   decoration: BoxDecoration(
+                    // The mark itself is a white plate, so the container is
+                    // white too: painting it any other colour produced a visible
+                    // ring around the artwork. A shadow alone separates it from
+                    // the card.
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 16),
-                    // The mark is a white plate; without a hairline its edge
-                    // bleeds into the card and reads as a dirty white border.
-                    border: Border.all(color: tk.hairline),
                     boxShadow: tk.cardShadow,
                   ),
                   clipBehavior: Clip.antiAlias,
