@@ -1,4 +1,5 @@
 # Uptime Kuma APP
+English|[简体中文](./README.zh-CN.md)
 
 A Flutter client for self-hosted [Uptime Kuma](https://github.com/louislam/uptime-kuma)
 instances. Read a public status page, watch heartbeats, get native alerts when a
