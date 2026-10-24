@@ -245,6 +245,8 @@ class L10n {
         '由前台服务承载常驻通知：无法滑动清除，系统也更不容易杀掉轮询进程。'
             '使用 specialUse 类型，不受 dataSync 的每日时长限制。',
       );
+  String get aboutFeedback => _t('Report an issue', '问题反馈');
+  String get openFailed => _t('Could not open the browser', '无法打开浏览器');
   String get openSourceTitle => _t('Open-source licence', '开源许可');
   String get openSourceBody => _t(
         'This app is distributed under the GNU General Public License v3.0.',

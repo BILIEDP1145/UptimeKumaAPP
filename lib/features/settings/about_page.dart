@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/widgets/app_card.dart';
@@ -22,6 +23,10 @@ class _AboutPageState extends State<AboutPage> {
   static const String contactMail = 'app@zakoflare.com';
   static const String businessMail = 'business@zakoflare.com';
 
+  /// Issue tracker. Opened in the system browser: a WebView cannot file bugs.
+  static const String feedbackUrl =
+      'https://github.com/BILIEDP1145/UptimeKumaAPP/issues';
+
   String _version = '—';
   String _hash = '—';
 
@@ -29,6 +34,23 @@ class _AboutPageState extends State<AboutPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _open(String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = L10n.of(context);
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched) {
+      messenger.showSnackBar(SnackBar(content: Text(l.openFailed)));
+    }
   }
 
   Future<void> _load() async {
@@ -76,12 +98,15 @@ class _AboutPageState extends State<AboutPage> {
                   width: 66,
                   height: 66,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 18),
+                    borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 16),
+                    // The mark is a white plate; without a hairline its edge
+                    // bleeds into the card and reads as a dirty white border.
+                    border: Border.all(color: tk.hairline),
                     boxShadow: tk.cardShadow,
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Image.asset(
-                    'assets/images/icon_default.png',
+                    'assets/images/icon_mark.png',
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
                       color: tk.accent,
@@ -133,6 +158,13 @@ class _AboutPageState extends State<AboutPage> {
                   value: projectUrl,
                   copyable: true,
                   multiline: true,
+                ),
+                _Divider(),
+                _InfoRow(
+                  icon: Icons.bug_report_outlined,
+                  label: l.aboutFeedback,
+                  value: feedbackUrl,
+                  onTap: () => _open(feedbackUrl),
                 ),
                 _Divider(),
                 _InfoRow(
