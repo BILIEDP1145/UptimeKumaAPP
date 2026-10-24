@@ -1,10 +1,9 @@
 # Uptime Kuma APP
+[English](./README.md)|简体中文
 
 一款面向自托管 [Uptime Kuma](https://github.com/louislam/uptime-kuma) 实例的 Flutter 客户端。读取公开状态页、查看心跳、在监控状态变化时收到原生推送通知——如需，也可以登录后在手机上管理整个实例：监控器、通知渠道和事件。
 
 应用包名：`com.zakoflare.uptime_kuma_app`。
-
-> **English README**: [README.md](./README.md)
 
 ---
 
