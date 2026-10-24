@@ -45,10 +45,6 @@ class HeartbeatBar extends StatelessWidget {
       size: Size(double.infinity, height),
       painter: _HeartbeatPainter(
         samples: samples,
-        // Slot count is fixed, not sample count: a monitor created a minute ago
-        // returned 4 beats and the strip rendered 4 fat blocks, which looked
-        // nothing like the dense strips next to it.
-        slots: maxBars,
         sharp: tk.style.isSharp,
         empty: tk.hairline,
         colors: {
@@ -66,50 +62,45 @@ class HeartbeatBar extends StatelessWidget {
 class _HeartbeatPainter extends CustomPainter {
   _HeartbeatPainter({
     required this.samples,
-    required this.slots,
     required this.sharp,
     required this.empty,
     required this.colors,
   });
 
   final List<Heartbeat> samples;
-
-  /// Total number of slots the strip is divided into. Samples are right-aligned
-  /// so a fresh monitor fills in from the right instead of stretching.
-  final int slots;
   final bool sharp;
   final Color empty;
   final Map<MonitorStatus, Color> colors;
 
+  /// Beats beyond this many pixels wide are not stretched further.
+  static const double _maxBarWidth = 14;
+
   @override
   void paint(Canvas canvas, Size size) {
     const gap = 1.6;
-    final count = slots < 1 ? 1 : slots;
-    final totalGap = gap * (count - 1);
-    final barWidth = ((size.width - totalGap) / count).clamp(0.8, 60.0);
+    final count = samples.length;
+    if (count == 0) return;
+
+    // Width always fits the data, never a fixed slot count. Filling missing
+    // slots with grey blocks produced a permanent empty band on the left of the
+    // detail page, which looked broken rather than sparse.
+    var barWidth = (size.width - gap * (count - 1)) / count;
+    barWidth = barWidth.clamp(0.8, _maxBarWidth);
     final pixelGap = barWidth >= 3 ? gap : 0.6;
     final radius = Radius.circular(sharp ? 0 : barWidth / 2.6);
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // Older beats are missing on the left: the strip fills from the right.
-    final offset = count - samples.length;
+    // Right-aligned: the newest beat stays glued to the right edge even when
+    // there are only a handful of them.
+    final totalWidth = count * barWidth + pixelGap * (count - 1);
+    final startX = size.width - totalWidth;
 
     for (var i = 0; i < count; i++) {
-      final index = i - offset;
-      final x = i * (barWidth + pixelGap);
-      if (index < 0) {
-        paint.color = empty.withValues(alpha: 0.55);
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, size.height * 0.07, barWidth, size.height * 0.86),
-          radius,
-        );
-        canvas.drawRRect(rect, paint);
-        continue;
-      }
-      final status = samples[index].status;
+      final status = samples[i].status;
       final color = colors[status] ?? colors[MonitorStatus.unknown]!;
       // Down checks always get full height so they are visible at a glance.
       final h = status == MonitorStatus.down ? size.height : size.height * 0.86;
+      final x = startX + i * (barWidth + pixelGap);
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, size.height - h, barWidth, h),
         radius,
@@ -121,10 +112,7 @@ class _HeartbeatPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HeartbeatPainter old) =>
-      old.samples != samples ||
-      old.slots != slots ||
-      old.colors != colors ||
-      old.sharp != sharp;
+      old.samples != samples || old.colors != colors || old.sharp != sharp;
 }
 
 /// Compact horizontal probability bar for 24h/7d/30d uptime.

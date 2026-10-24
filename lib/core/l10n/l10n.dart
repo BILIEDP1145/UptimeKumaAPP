@@ -124,6 +124,7 @@ class L10n {
   String get noMonitors => _t('No monitors published yet', '暂无公开监控项');
   String get heartbeatHistory => _t('Heartbeat history', '心跳记录');
   String get last60Checks => _t('Last 60 checks', '最近 60 次检查');
+  String lastChecks(int n) => _t('Last $n checks', '最近 $n 次检查');
   String get certExpiry => _t('Certificate', '证书');
   String certDaysLeft(int d) => _t('$d days left', '剩余 $d 天');
   String get certExpired => _t('Expired', '已过期');

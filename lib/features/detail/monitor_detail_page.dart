@@ -127,7 +127,10 @@ class MonitorDetailPage extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(l.last60Checks, style: context.txt.titleSmall),
+                    Text(
+                      l.lastChecks(heartbeats.isEmpty ? 60 : heartbeats.length),
+                      style: context.txt.titleSmall,
+                    ),
                     const Spacer(),
                     Text(
                       Fmt.dateTime(snap.fetchedAt),
