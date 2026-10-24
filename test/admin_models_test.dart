@@ -28,7 +28,7 @@ void main() {
     expect(payload.containsKey('id'), isFalse);
   });
 
-  test('editing keeps server-owned fields and re-shapes the two odd columns', () {
+  test('payload is a whitelist and never echoes server-owned columns', () {
     final row = <String, dynamic>{
       'id': 12,
       'name': 'Old name',
@@ -54,11 +54,18 @@ void main() {
     final payload = draft.toPayload();
 
     expect(payload['id'], 12);
-    expect(payload['httpBodyEncoding'], 'json');
     expect(payload['keyword'], 'sign in');
     expect(payload['accepted_statuscodes'], ['200-299', '301']);
     expect(payload['notificationIDList'], {'4': true});
     expect(payload.containsKey('accepted_statuscodes_json'), isFalse);
+
+    // Regression: echoing the raw row sent Kuma-2.x-only columns to older
+    // servers, which died with "table monitor has no column named conditions".
+    expect(payload.containsKey('httpBodyEncoding'), isFalse);
+    expect(payload.containsKey('resendInterval'), isFalse);
+    expect(payload.containsKey('conditions'), isFalse);
+    expect(payload.containsKey('kafkaProducerBrokers'), isFalse);
+    expect(payload.containsKey('rabbitmqNodes'), isFalse);
   });
 
   test('non-HTTP kinds never carry a URL or status-code list', () {

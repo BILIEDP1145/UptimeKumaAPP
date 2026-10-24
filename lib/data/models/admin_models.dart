@@ -138,37 +138,32 @@ class MonitorDraft {
     );
   }
 
-  /// Builds the payload for `add` / `editMonitor`. Mirrors the field set the
-  /// official web UI sends, including the JSON-encoded columns the server
-  /// validates.
+  /// Builds the payload for `add` / `editMonitor`.
+  ///
+  /// **Whitelist only.** Spreading the raw row back at the server looked
+  /// harmless and broke on older Kuma: a 1.x `monitor` table has no `conditions`
+  /// column, so the insert died with
+  /// `SQLITE_ERROR: table monitor has no column named conditions`.
+  /// Kuma 2.x fields (`conditions`, Kafka/RabbitMQ options, `resendInterval`)
+  /// must not be sent to a server that predates them.
   Map<String, dynamic> toPayload() {
     final payload = <String, dynamic>{
-      ...raw,
       if (id != null) 'id': id,
       'name': name.trim(),
       'type': kind.id,
       'interval': interval,
       'retryInterval': retryInterval,
       'maxretries': maxretries,
-      'resendInterval': 0,
       'timeout': timeout,
       'active': active ? 1 : 0,
       'upsideDown': upsideDown ? 1 : 0,
       'description': description,
       'parent': parent,
-      'notificationIDList': {for (final id in notificationIds) '$id': true},
-      'conditions': const [],
-      'kafkaProducerBrokers': const [],
-      'kafkaProducerSaslOptions': const {},
-      'rabbitmqNodes': const [],
+      'notificationIDList': {for (final nid in notificationIds) '$nid': true},
+      'accepted_statuscodes': kind == MonitorKind.http || kind == MonitorKind.keyword
+          ? acceptedCodes
+          : const ['200-299'],
     };
-
-    payload['accepted_statuscodes'] = kind == MonitorKind.http || kind == MonitorKind.keyword
-        ? acceptedCodes
-        : const ['200-299'];
-    payload.remove('accepted_statuscodes_json');
-    payload.remove('humanReadableInterval');
-    payload.remove('responsecheck');
 
     switch (kind) {
       case MonitorKind.http:
