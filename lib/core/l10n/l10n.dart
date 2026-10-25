@@ -66,6 +66,13 @@ class L10n {
         'That instance is already in the list',
         '该实例已在列表中',
       );
+  String get manage => _t('Manage', '管理');
+  String get manageHint => _t(
+        'Housekeeping for the instance list.',
+        '实例列表的维护操作。',
+      );
+  String duplicatesFound(int n) =>
+      _t('$n duplicate(s) found', '发现 $n 个重复实例');
   String get removeDuplicates => _t('Remove duplicates', '清理重复实例');
   String removedDuplicates(int n) =>
       _t('Removed $n duplicate(s)', '已清理 $n 个重复实例');

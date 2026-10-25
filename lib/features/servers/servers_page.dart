@@ -174,11 +174,15 @@ class ServersPage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: Icon(Icons.cleaning_services_outlined, color: tk.accentInk),
-                title: Text(l.removeDuplicates),
+                leading: Icon(Icons.tune_rounded, color: tk.accentInk),
+                title: Text(l.manage),
+                subtitle: Text(
+                  l.manageHint,
+                  style: ctx.txt.labelSmall?.copyWith(color: tk.muted),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _removeDuplicates(context);
+                  _showManageSheet(context);
                 },
               ),
               ListTile(
@@ -192,6 +196,63 @@ class ServersPage extends StatelessWidget {
                   Navigator.pop(ctx);
                   showImportDialog(context, title: l.importCollection);
                 },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Housekeeping lives behind its own entry: burying "remove duplicates"
+  /// directly under the ➕ button made the add menu look like a junk drawer.
+  static Future<void> _showManageSheet(BuildContext context) async {
+    final app = context.read<AppState>();
+    final l = L10n.of(context);
+    final tk = context.tk;
+    final duplicates = app.duplicateCount;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          bottom: MediaQuery.viewPaddingOf(ctx).bottom + 12,
+        ),
+        decoration: BoxDecoration(
+          color: tk.surfaceCard,
+          borderRadius: BorderRadius.circular(tk.style.isSharp ? 4 : 20),
+          boxShadow: tk.cardShadow,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: Text(l.manage, style: ctx.txt.titleSmall),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.cleaning_services_outlined,
+                  color: duplicates > 0 ? tk.statusDown : tk.muted,
+                ),
+                title: Text(l.removeDuplicates),
+                subtitle: Text(
+                  duplicates > 0 ? l.duplicatesFound(duplicates) : l.noDuplicates,
+                  style: ctx.txt.labelSmall?.copyWith(color: tk.muted),
+                ),
+                enabled: duplicates > 0,
+                onTap: duplicates > 0
+                    ? () {
+                        Navigator.pop(ctx);
+                        _removeDuplicates(context);
+                      }
+                    : null,
               ),
             ],
           ),

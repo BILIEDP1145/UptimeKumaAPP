@@ -431,6 +431,16 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  /// How many entries would disappear if duplicates were removed.
+  int get duplicateCount {
+    final seen = <String>{};
+    var duplicates = 0;
+    for (final server in _servers) {
+      if (!seen.add(server.dedupeKey)) duplicates++;
+    }
+    return duplicates;
+  }
+
   bool isDuplicate(ServerConfig server) =>
       _servers.any((s) => s.id != server.id && s.dedupeKey == server.dedupeKey);
 
