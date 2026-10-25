@@ -681,21 +681,22 @@ class _SoundRow extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton.icon(
-              onPressed: onPreview,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 30),
+            if (!sound.isSilent)
+              TextButton.icon(
+                onPressed: onPreview,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 30),
+                ),
+                icon: Icon(
+                  playing ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  size: 15,
+                ),
+                label: Text(
+                  playing ? '—' : l.preview,
+                  style: const TextStyle(fontSize: 11.5),
+                ),
               ),
-              icon: Icon(
-                playing ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                size: 15,
-              ),
-              label: Text(
-                playing ? '—' : l.preview,
-                style: const TextStyle(fontSize: 11.5),
-              ),
-            ),
           ],
         ),
       ),

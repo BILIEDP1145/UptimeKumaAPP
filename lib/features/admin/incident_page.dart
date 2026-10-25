@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/utils/fmt.dart';
 import '../../core/widgets/app_card.dart';
 import '../../state/admin_controller.dart';
 
@@ -21,7 +22,9 @@ class _IncidentPageState extends State<IncidentPage> {
   final _pageTitle = TextEditingController();
   final _pageSlug = TextEditingController();
   String _style = 'info';
+  DateTime _startedAt = DateTime.now();
   bool _posting = false;
+  bool _unpinning = false;
   bool _creatingPage = false;
   String? _error;
   String? _slug;
@@ -94,6 +97,7 @@ class _IncidentPageState extends State<IncidentPage> {
         title: _title.text.trim(),
         content: _content.text.trim(),
         style: _style,
+        startedAt: _startedAt,
       );
       if (!mounted) return;
       setState(() {
@@ -106,6 +110,54 @@ class _IncidentPageState extends State<IncidentPage> {
       if (!mounted) return;
       setState(() {
         _posting = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _pickStart() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _startedAt,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 1)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_startedAt),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _startedAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Future<void> _unpin() async {
+    final l = L10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final slug = _slug;
+    if (slug == null || slug.isEmpty) return;
+    setState(() {
+      _unpinning = true;
+      _error = null;
+    });
+    try {
+      await widget.admin.unpinIncident(slug);
+      if (!mounted) return;
+      setState(() => _unpinning = false);
+      messenger.showSnackBar(SnackBar(content: Text(l.incidentUnpinned)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _unpinning = false;
         _error = e.toString();
       });
     }
@@ -134,7 +186,10 @@ class _IncidentPageState extends State<IncidentPage> {
                 Expanded(
                   child: Text(
                     l.noStatusPageHint,
-                    style: context.txt.labelSmall?.copyWith(color: tk.muted, height: 1.45),
+                    style: context.txt.labelSmall?.copyWith(
+                      color: tk.muted,
+                      height: 1.45,
+                    ),
                   ),
                 ),
               ],
@@ -181,7 +236,9 @@ class _IncidentPageState extends State<IncidentPage> {
                   const SizedBox(height: 10),
                   Text(
                     _error!,
-                    style: context.txt.labelSmall?.copyWith(color: tk.statusDown),
+                    style: context.txt.labelSmall?.copyWith(
+                      color: tk.statusDown,
+                    ),
                   ),
                 ],
               ],
@@ -213,7 +270,8 @@ class _IncidentPageState extends State<IncidentPage> {
                     DropdownMenuItem<String>(
                       value: page['slug'] as String?,
                       child: Text(
-                        (page['title'] as String?) ?? (page['slug'] as String? ?? '—'),
+                        (page['title'] as String?) ??
+                            (page['slug'] as String? ?? '—'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -254,6 +312,30 @@ class _IncidentPageState extends State<IncidentPage> {
                   _styleChip('primary', l.stylePrimary, tk.accent),
                 ],
               ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      Fmt.dateTime(_startedAt),
+                      style: context.txt.bodySmall?.copyWith(
+                        color: tk.textStrong,
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _pickStart,
+                    child: Text(l.incidentStart),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _startedAt = DateTime.now()),
+                    child: Text(l.incidentNow),
+                  ),
+                ],
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: true,
@@ -290,6 +372,25 @@ class _IncidentPageState extends State<IncidentPage> {
                   )
                 : const Icon(Icons.campaign_outlined, size: 17),
             label: Text(l.postEvent),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 44,
+          child: OutlinedButton.icon(
+            onPressed: _unpinning || _slug == null ? null : _unpin,
+            icon: _unpinning
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.push_pin_outlined, size: 17),
+            label: Text(l.incidentUnpin),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tk.statusDown,
+              side: BorderSide(color: tk.statusDown.withValues(alpha: 0.45)),
+            ),
           ),
         ),
       ],

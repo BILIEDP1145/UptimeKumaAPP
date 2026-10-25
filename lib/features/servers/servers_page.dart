@@ -192,7 +192,10 @@ class ServersPage extends StatelessWidget {
     );
   }
 
-  static Future<void> _openEditor(BuildContext context, {ServerConfig? server}) {
+  static Future<void> _openEditor(
+    BuildContext context, {
+    ServerConfig? server,
+  }) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => ServerEditPage(server: server)),
     );
@@ -207,6 +210,173 @@ class ServersPage extends StatelessWidget {
 
   // Collection prompt ------------------------------------------------------
 
+  /// One collection picker used by both the single and the batch dialog.
+  ///
+  /// Chips in a Wrap were a dead end: a dozen collections turned the dialog into
+  /// a wall of tags. A dropdown keeps the list scrollable and the layout fixed.
+  static Widget _collectionPicker({
+    required List<({String id, String name, List<ServerConfig> servers})>
+    existing,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+    required TextEditingController custom,
+    required String newLabel,
+    required String nameHint,
+  }) {
+    final isNew = value == _newCollectionKey;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: const InputDecoration(),
+          hint: Text(newLabel),
+          items: [
+            for (final c in existing)
+              DropdownMenuItem<String>(
+                value: c.name,
+                child: Text(
+                  c.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            DropdownMenuItem<String>(
+              value: _newCollectionKey,
+              child: Text(newLabel),
+            ),
+          ],
+          onChanged: onChanged,
+        ),
+        if (isNew) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: custom,
+            autofocus: true,
+            decoration: InputDecoration(hintText: nameHint),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static const String _newCollectionKey = '__new__';
+
+  /// Batch join: tick the instances, pick a collection, done in one request per
+  /// instance instead of repeating the dialog for every card.
+  static Future<void> _promptBulkCollection(BuildContext context) async {
+    final app = context.read<AppState>();
+    final l = L10n.of(context);
+    final tk = context.tk;
+    final existing = app.collections;
+    final servers = app.servers;
+    final custom = TextEditingController();
+    final selected = <String>{};
+    String? chosen = existing.isEmpty ? _newCollectionKey : existing.first.name;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.bulkJoin),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.bulkJoinHint,
+                  style: ctx.txt.labelSmall?.copyWith(
+                    color: tk.muted,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _collectionPicker(
+                  existing: existing,
+                  value: chosen,
+                  onChanged: (v) => setLocal(() => chosen = v),
+                  custom: custom,
+                  newLabel: l.newCollection,
+                  nameHint: l.collectionName,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${selected.length} / ${servers.length}',
+                      style: ctx.txt.labelSmall?.copyWith(color: tk.muted),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => setLocal(() {
+                        if (selected.length == servers.length) {
+                          selected.clear();
+                        } else {
+                          selected
+                            ..clear()
+                            ..addAll(servers.map((s) => s.id));
+                        }
+                      }),
+                      child: Text(l.selectAll),
+                    ),
+                  ],
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final server in servers)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: selected.contains(server.id),
+                          title: Text(
+                            server.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onChanged: (v) => setLocal(() {
+                            if (v == true) {
+                              selected.add(server.id);
+                            } else {
+                              selected.remove(server.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.confirm),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final typed = custom.text;
+    custom.dispose();
+    if (confirmed != true || selected.isEmpty) return;
+    final name = (chosen == _newCollectionKey ? typed : chosen)?.trim() ?? '';
+    if (name.isEmpty) return;
+    for (final id in selected) {
+      await app.joinCollection(id, name);
+    }
+  }
+
   static Future<void> _promptCollection(
     BuildContext context,
     ServerConfig server,
@@ -214,61 +384,61 @@ class ServersPage extends StatelessWidget {
     final app = context.read<AppState>();
     final l = L10n.of(context);
     final tk = context.tk;
-    final controller = TextEditingController(text: server.collectionName ?? '');
     final existing = app.collections;
+    final custom = TextEditingController();
+    String? chosen =
+        server.collectionName ??
+        (existing.isEmpty ? _newCollectionKey : existing.first.name);
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.joinCollection),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.collectionHint,
-              style: ctx.txt.labelSmall?.copyWith(color: tk.muted, height: 1.4),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(hintText: l.collectionName),
-            ),
-            if (existing.isNotEmpty) ...[
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.joinCollection),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.collectionHint,
+                style: ctx.txt.labelSmall?.copyWith(
+                  color: tk.muted,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final c in existing)
-                    ActionChip(
-                      label: Text(c.name),
-                      onPressed: () => controller.text = c.name,
-                    ),
-                ],
+              _collectionPicker(
+                existing: existing,
+                value: chosen,
+                onChanged: (v) => setLocal(() => chosen = v),
+                custom: custom,
+                newLabel: l.newCollection,
+                nameHint: l.collectionName,
               ),
             ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final typed = custom.text;
+                final name =
+                    (chosen == _newCollectionKey ? typed : chosen)?.trim() ??
+                    '';
+                if (name.isEmpty) return;
+                Navigator.pop(ctx);
+                await app.joinCollection(server.id, name);
+              },
+              child: Text(l.confirm),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              await app.joinCollection(server.id, name);
-            },
-            child: Text(l.confirm),
-          ),
-        ],
       ),
     );
-    controller.dispose();
+    custom.dispose();
   }
 }
 
@@ -285,86 +455,104 @@ class _ServerTile extends StatelessWidget {
     final app = context.read<AppState>();
     final palette = AccentPalette.byId(server.colorTag);
 
-    return AppCard(
-      accentStripe: isActive,
-      borderColor: isActive ? tk.accent.withValues(alpha: 0.45) : null,
-      onTap: () => app.setActiveServer(server.id),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: palette.color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),
-                ),
-                child: Icon(Icons.dns_rounded, size: 18, color: palette.color),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            server.name,
-                            style: context.txt.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: tk.textStrong,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isActive) ...[
-                          const SizedBox(width: 6),
-                          AppChip(label: l.active, color: tk.accent, dense: true),
-                        ],
-                      ],
+    return GestureDetector(
+      onLongPress: () => _showServerMenuAt(context, server),
+      child: AppCard(
+        accentStripe: isActive,
+        borderColor: isActive ? tk.accent.withValues(alpha: 0.45) : null,
+        onTap: () => app.setActiveServer(server.id),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: palette.color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(
+                      tk.style.isSharp ? 2 : 10,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${server.displayHost}  ·  /status/${server.slug}',
-                      style: context.txt.labelSmall?.copyWith(color: tk.muted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              _ServerMenu(server: server),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.link_rounded, size: 12, color: tk.muted),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  server.statusPageUrl,
-                  style: context.txt.labelSmall?.copyWith(color: tk.muted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (!isActive)
-                TextButton(
-                  onPressed: () => app.setActiveServer(server.id),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 30),
                   ),
-                  child: Text(l.setActive, style: const TextStyle(fontSize: 12)),
+                  child: Icon(
+                    Icons.dns_rounded,
+                    size: 18,
+                    color: palette.color,
+                  ),
                 ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              server.name,
+                              style: context.txt.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: tk.textStrong,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isActive) ...[
+                            const SizedBox(width: 6),
+                            AppChip(
+                              label: l.active,
+                              color: tk.accent,
+                              dense: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${server.displayHost}  ·  /status/${server.slug}',
+                        style: context.txt.labelSmall?.copyWith(
+                          color: tk.muted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                _ServerMenu(server: server),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.link_rounded, size: 12, color: tk.muted),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    server.statusPageUrl,
+                    style: context.txt.labelSmall?.copyWith(color: tk.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isActive)
+                  TextButton(
+                    onPressed: () => app.setActiveServer(server.id),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 30),
+                    ),
+                    child: Text(
+                      l.setActive,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -456,56 +644,213 @@ class _CollectionMember extends StatelessWidget {
     final app = context.read<AppState>();
     final palette = AccentPalette.byId(server.colorTag);
 
-    return InkWell(
-      onTap: () => app.setActiveServer(server.id),
-      borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-        child: Row(
-          children: [
-            Text(
-              '$index',
-              style: context.txt.labelSmall?.copyWith(
-                color: tk.muted,
-                fontFeatures: tk.tabular,
+    return GestureDetector(
+      onLongPress: () => _showServerMenuAt(context, server),
+      child: InkWell(
+        onTap: () => app.setActiveServer(server.id),
+        borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Row(
+            children: [
+              Text(
+                '$index',
+                style: context.txt.labelSmall?.copyWith(
+                  color: tk.muted,
+                  fontFeatures: tk.tabular,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: palette.color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    server.name,
-                    style: context.txt.bodySmall?.copyWith(
-                      color: tk.textStrong,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              const SizedBox(width: 8),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: palette.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      server.name,
+                      style: context.txt.bodySmall?.copyWith(
+                        color: tk.textStrong,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    server.displayHost,
-                    style: context.txt.labelSmall?.copyWith(color: tk.muted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    Text(
+                      server.displayHost,
+                      style: context.txt.labelSmall?.copyWith(color: tk.muted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (isActive) AppChip(label: l.active, color: tk.accent, dense: true),
-            _ServerMenu(server: server, dense: true),
-          ],
+              if (isActive)
+                AppChip(label: l.active, color: tk.accent, dense: true),
+              _ServerMenu(server: server, dense: true),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+List<PopupMenuEntry<String>> _serverMenuItems(
+  BuildContext context,
+  ServerConfig server,
+) {
+  final tk = context.tk;
+  final l = L10n.of(context);
+  return [
+    PopupMenuItem(
+      value: 'edit',
+      child: Row(
+        children: [
+          const Icon(Icons.edit_outlined, size: 17),
+          const SizedBox(width: 10),
+          Text(l.edit),
+        ],
+      ),
+    ),
+    PopupMenuItem(
+      value: 'export',
+      child: Row(
+        children: [
+          const Icon(Icons.ios_share_rounded, size: 17),
+          const SizedBox(width: 10),
+          Text(l.exportConfig),
+        ],
+      ),
+    ),
+    PopupMenuItem(
+      value: 'join',
+      child: Row(
+        children: [
+          const Icon(Icons.layers_outlined, size: 17),
+          const SizedBox(width: 10),
+          Text(l.joinCollection),
+        ],
+      ),
+    ),
+    PopupMenuItem(
+      value: 'bulk',
+      child: Row(
+        children: [
+          const Icon(Icons.checklist_rounded, size: 17),
+          const SizedBox(width: 10),
+          Text(l.bulkJoin),
+        ],
+      ),
+    ),
+    if (server.inCollection)
+      PopupMenuItem(
+        value: 'leave',
+        child: Row(
+          children: [
+            const Icon(Icons.layers_clear_rounded, size: 17),
+            const SizedBox(width: 10),
+            Text(l.leaveCollection),
+          ],
+        ),
+      ),
+    PopupMenuItem(
+      value: 'delete',
+      child: Row(
+        children: [
+          Icon(Icons.delete_outline, size: 17, color: tk.statusDown),
+          const SizedBox(width: 10),
+          Text(l.delete, style: TextStyle(color: tk.statusDown)),
+        ],
+      ),
+    ),
+  ];
+}
+
+Future<void> _handleServerMenu(
+  BuildContext context,
+  ServerConfig server,
+  String value,
+) async {
+  final tk = context.tk;
+  final l = L10n.of(context);
+  final app = context.read<AppState>();
+  switch (value) {
+    case 'edit':
+      await ServersPage._openEditor(context, server: server);
+    case 'export':
+      await ServersPage._copy(
+        context,
+        ShareCode.forInstance(
+          server,
+          collectionName: server.inCollection ? server.collectionName : null,
+        ),
+      );
+    case 'join':
+      await ServersPage._promptCollection(context, server);
+    case 'bulk':
+      await ServersPage._promptBulkCollection(context);
+    case 'leave':
+      await app.leaveCollection(server.id);
+    case 'delete':
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.deleteInstance),
+          content: Text(l.deleteInstanceBody(server.name)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: tk.statusDown,
+                minimumSize: const Size(0, 40),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.delete),
+            ),
+          ],
+        ),
+      );
+      if (ok == true) await app.removeServer(server.id);
+  }
+}
+
+/// Opens the same menu the ⋯ button shows, anchored to the card the user
+/// long-pressed. One menu, two ways in.
+Future<void> _showServerMenuAt(
+  BuildContext context,
+  ServerConfig server,
+) async {
+  final box = context.findRenderObject() as RenderBox?;
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+  if (box == null || overlay == null) return;
+  final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+  final bottomRight = box.localToGlobal(
+    box.size.bottomRight(Offset.zero),
+    ancestor: overlay,
+  );
+  final value = await showMenu<String>(
+    context: context,
+    position: RelativeRect.fromRect(
+      Rect.fromPoints(topLeft, bottomRight),
+      Offset.zero & overlay.size,
+    ),
+    items: _serverMenuItems(context, server),
+  );
+  if (value == null || !context.mounted) return;
+  await _handleServerMenu(context, server, value);
 }
 
 class _ServerMenu extends StatelessWidget {
@@ -517,9 +862,6 @@ class _ServerMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = context.tk;
-    final l = L10n.of(context);
-    final app = context.read<AppState>();
-
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.more_horiz_rounded,
@@ -530,100 +872,8 @@ class _ServerMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 12),
       ),
-      onSelected: (value) async {
-        switch (value) {
-          case 'edit':
-            await ServersPage._openEditor(context, server: server);
-          case 'export':
-            await ServersPage._copy(
-              context,
-              ShareCode.forInstance(
-                server,
-                collectionName: server.inCollection ? server.collectionName : null,
-              ),
-            );
-          case 'join':
-            await ServersPage._promptCollection(context, server);
-          case 'leave':
-            await app.leaveCollection(server.id);
-          case 'delete':
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Text(l.deleteInstance),
-                content: Text(l.deleteInstanceBody(server.name)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text(l.cancel),
-                  ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: tk.statusDown,
-                      minimumSize: const Size(0, 40),
-                    ),
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: Text(l.delete),
-                  ),
-                ],
-              ),
-            );
-            if (ok == true) await app.removeServer(server.id);
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'edit',
-          child: Row(
-            children: [
-              const Icon(Icons.edit_outlined, size: 17),
-              const SizedBox(width: 10),
-              Text(l.edit),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'export',
-          child: Row(
-            children: [
-              const Icon(Icons.ios_share_rounded, size: 17),
-              const SizedBox(width: 10),
-              Text(l.exportConfig),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'join',
-          child: Row(
-            children: [
-              const Icon(Icons.layers_outlined, size: 17),
-              const SizedBox(width: 10),
-              Text(l.joinCollection),
-            ],
-          ),
-        ),
-        if (server.inCollection)
-          PopupMenuItem(
-            value: 'leave',
-            child: Row(
-              children: [
-                const Icon(Icons.layers_clear_rounded, size: 17),
-                const SizedBox(width: 10),
-                Text(l.leaveCollection),
-              ],
-            ),
-          ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 17, color: tk.statusDown),
-              const SizedBox(width: 10),
-              Text(l.delete, style: TextStyle(color: tk.statusDown)),
-            ],
-          ),
-        ),
-      ],
+      itemBuilder: (context) => _serverMenuItems(context, server),
+      onSelected: (value) => _handleServerMenu(context, server, value),
     );
   }
 }

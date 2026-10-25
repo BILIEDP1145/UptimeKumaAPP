@@ -528,6 +528,7 @@ class UkAdmin {
     required String content,
     required String style,
     int? id,
+    DateTime? startedAt,
   }) async {
     final res = await _s.ack('postIncident', [
       slug,
@@ -537,6 +538,10 @@ class UkAdmin {
         'style': style,
         // Null-aware element: omitted entirely when editing is not intended.
         'id': ?id,
+        // Servers that ignore unknown fields simply fall back to "now"; newer
+        // ones honour a back-dated incident.
+        if (startedAt != null)
+          'createdDate': startedAt.toUtc().toIso8601String(),
       },
     ]);
     _throwIfFailed(res, 'postIncident');

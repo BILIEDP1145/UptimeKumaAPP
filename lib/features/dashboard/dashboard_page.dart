@@ -6,6 +6,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/theme/palettes.dart';
 import '../../core/utils/fmt.dart';
 import '../../core/utils/status_ui.dart';
+import '../../core/utils/html_text.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/widgets/heartbeat_bar.dart';
@@ -829,7 +830,15 @@ class _IncidentBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = context.tk;
-    final color = incident.isDanger ? tk.statusDown : tk.accent;
+    // Follow the style the author picked: a warning used to render in the same
+    // red as a danger, which made "警示" indistinguishable from an outage.
+    final color = switch (incident.style) {
+      'danger' => tk.statusDown,
+      'warning' => tk.statusPending,
+      'success' => tk.statusUp,
+      'primary' => tk.accentInk,
+      _ => tk.accent,
+    };
     return Padding(
       padding: EdgeInsets.fromLTRB(tk.pagePadding.left, tk.cardGap, tk.pagePadding.right, 0),
       child: AppCard(
@@ -853,8 +862,11 @@ class _IncidentBanner extends StatelessWidget {
             if (incident.content.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                incident.content,
-                style: context.txt.bodySmall?.copyWith(color: tk.textStrong),
+                stripKumaHtml(incident.content),
+                style: context.txt.bodySmall?.copyWith(
+                  color: tk.textStrong,
+                  height: 1.45,
+                ),
               ),
             ],
             const SizedBox(height: 6),

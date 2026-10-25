@@ -25,6 +25,7 @@ class NotificationService {
   final AudioPlayer _inAppPlayer = AudioPlayer();
 
   Future<void> _playInApp(SoundOption sound) async {
+    if (sound.isSilent) return;
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
@@ -115,7 +116,7 @@ class NotificationService {
           sound.labelEn,
           description: 'Uptime Kuma monitor state changes',
           importance: Importance.max,
-          playSound: !silent,
+          playSound: !silent && !sound.isSilent,
           sound: _soundFor(sound, silent: silent),
           enableVibration: !silent,
         ),
@@ -127,7 +128,7 @@ class NotificationService {
   }
 
   AndroidNotificationSound? _soundFor(SoundOption sound, {bool silent = false}) {
-    if (silent) return null;
+    if (silent || sound.isSilent) return null;
     return sound.contentUri != null
         ? UriAndroidNotificationSound(sound.contentUri!)
         : RawResourceAndroidNotificationSound(sound.rawName);
@@ -200,7 +201,7 @@ class NotificationService {
       // `notification` is what Android expects here; `alarm` made the system
       // refuse to play on devices whose DND rules only whitelist real alarms.
       audioAttributesUsage: AudioAttributesUsage.notification,
-      playSound: !silent,
+      playSound: !silent && !sound.isSilent,
       sound: _soundFor(sound, silent: silent),
       enableVibration: !silent,
       enableLights: true,

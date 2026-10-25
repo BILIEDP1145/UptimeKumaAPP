@@ -165,7 +165,7 @@ class _AboutPageState extends State<AboutPage> {
                 _InfoRow(
                   icon: Icons.bug_report_outlined,
                   label: l.aboutFeedback,
-                  value: feedbackUrl,
+                  value: l.raiseIssue,
                   onTap: () => _open(feedbackUrl),
                 ),
                 _Divider(),

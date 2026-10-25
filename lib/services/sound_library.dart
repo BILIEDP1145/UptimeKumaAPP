@@ -36,6 +36,11 @@ class SoundOption {
 
   bool get isCustom => contentUri != null || localPath != null;
 
+  /// A notification-only channel: the alert shows up but stays quiet.
+  bool get isSilent => id == silentId;
+
+  static const String silentId = 'silent';
+
   String get assetPath => 'assets/sounds/$rawName.$ext';
 
   String label(bool zh) => zh ? labelZh : labelEn;
@@ -49,6 +54,7 @@ class SoundOption {
   /// Android caches channel audio, so the channel id must change whenever the
   /// chosen tone changes.
   String channelId() {
+    if (isSilent) return 'uk_alerts_silent_$channelVersion';
     if (isCustom) {
       final tail = (contentUri ?? localPath ?? '').split('/').last;
       return 'uk_alerts_custom_${tail}_$channelVersion';
@@ -75,6 +81,12 @@ class SoundOption {
       labelZh: '爆响 💥',
       rawName: 'alert_boom',
       ext: 'mp3',
+    ),
+    SoundOption(
+      id: silentId,
+      labelEn: 'Notify only (silent)',
+      labelZh: '仅通知（静音）',
+      rawName: '',
     ),
   ];
 

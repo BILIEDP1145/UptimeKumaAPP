@@ -62,6 +62,13 @@ class L10n {
   String get exportConfig => _t('Export config', '导出配置');
   String get exportCollection => _t('Export collection', '导出集合');
   String get exportedToClipboard => _t('Copied to clipboard', '已复制到剪贴板');
+  String get bulkJoin => _t('Batch join collection', '批量加入集合');
+  String get bulkJoinHint => _t(
+        'Select the instances to move, then pick a collection.',
+        '勾选要加入的实例，再选择一个集合。',
+      );
+  String get newCollection => _t('New collection…', '新建集合…');
+  String get selectAll => _t('Select all', '全选');
   String get joinCollection => _t('Join a collection', '加入集合');
   String get leaveCollection => _t('Leave collection', '移出集合');
   String get collection => _t('Collection', '集合');
@@ -245,7 +252,12 @@ class L10n {
         '由前台服务承载常驻通知：无法滑动清除，系统也更不容易杀掉轮询进程。'
             '使用 specialUse 类型，不受 dataSync 的每日时长限制。',
       );
+  String get incidentStart => _t('Starts at', '起始时间');
+  String get incidentNow => _t('Now', '现在');
+  String get incidentUnpin => _t('Remove pinned events', '撤销置顶事件');
+  String get incidentUnpinned => _t('Pinned events cleared', '已撤销置顶事件');
   String get aboutFeedback => _t('Report an issue', '问题反馈');
+  String get raiseIssue => _t('Open an issue', '提出 Issue');
   String get openFailed => _t('Could not open the browser', '无法打开浏览器');
   String get openSourceTitle => _t('Open-source licence', '开源许可');
   String get openSourceBody => _t(

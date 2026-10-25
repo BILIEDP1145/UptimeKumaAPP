@@ -314,13 +314,22 @@ class AdminController extends ChangeNotifier {
     required String title,
     required String content,
     required String style,
+    DateTime? startedAt,
   }) async {
     await _mutate((admin) => admin.postIncident(
           slug: slug,
           title: title,
           content: content,
           style: style,
+          startedAt: startedAt,
         ));
+    await refresh();
+  }
+
+  /// Takes every pinned incident off the status page.
+  Future<void> unpinIncident(String slug) async {
+    await _mutate((admin) => admin.unpinIncident(slug));
+    await refresh();
   }
 
   /// Builds a dashboard snapshot out of the admin payload, so instances with
