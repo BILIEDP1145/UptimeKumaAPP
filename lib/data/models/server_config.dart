@@ -69,6 +69,13 @@ class ServerConfig {
 
   String get statusPageUrl => '$baseUrl/status/$slug';
 
+  /// Identity of the "same instance": host plus status-page path.
+  /// Two entries with the same key produce duplicate boards and duplicate alerts.
+  String get dedupeKey {
+    final base = baseUrl.trim().toLowerCase().replaceAll(RegExp(r'/+$'), '');
+    return '$base|${slug.trim().toLowerCase()}';
+  }
+
   String get configEndpoint => '$baseUrl/api/status-page/$slug';
 
   String get heartbeatEndpoint => '$baseUrl/api/status-page/heartbeat/$slug';

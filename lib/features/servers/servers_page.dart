@@ -174,6 +174,14 @@ class ServersPage extends StatelessWidget {
                 },
               ),
               ListTile(
+                leading: Icon(Icons.cleaning_services_outlined, color: tk.accentInk),
+                title: Text(l.removeDuplicates),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removeDuplicates(context);
+                },
+              ),
+              ListTile(
                 leading: Icon(Icons.layers_rounded, color: tk.accentInk),
                 title: Text(l.importCollection),
                 subtitle: Text(
@@ -187,6 +195,20 @@ class ServersPage extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _removeDuplicates(BuildContext context) async {
+    final app = context.read<AppState>();
+    final l = L10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final removed = await app.removeDuplicateServers();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          removed == 0 ? l.noDuplicates : l.removedDuplicates(removed),
         ),
       ),
     );
@@ -456,7 +478,9 @@ class _ServerTile extends StatelessWidget {
     final palette = AccentPalette.byId(server.colorTag);
 
     return GestureDetector(
-      onLongPress: () => _showServerMenuAt(context, server),
+      onLongPress: app.menuTrigger == 'longPress'
+          ? () => _showServerMenuAt(context, server)
+          : null,
       child: AppCard(
         accentStripe: isActive,
         borderColor: isActive ? tk.accent.withValues(alpha: 0.45) : null,
@@ -521,7 +545,7 @@ class _ServerTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                _ServerMenu(server: server),
+                if (app.menuTrigger == 'button') _ServerMenu(server: server),
               ],
             ),
             const SizedBox(height: 8),
@@ -645,7 +669,9 @@ class _CollectionMember extends StatelessWidget {
     final palette = AccentPalette.byId(server.colorTag);
 
     return GestureDetector(
-      onLongPress: () => _showServerMenuAt(context, server),
+      onLongPress: app.menuTrigger == 'longPress'
+          ? () => _showServerMenuAt(context, server)
+          : null,
       child: InkWell(
         onTap: () => app.setActiveServer(server.id),
         borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 10),

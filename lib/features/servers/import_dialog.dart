@@ -23,6 +23,7 @@ Future<int> showImportDialog(
   final tk = context.tk;
   final messenger = ScaffoldMessenger.of(context);
   var imported = 0;
+  var skipped = 0;
 
   await showDialog<void>(
     context: context,
@@ -71,9 +72,17 @@ Future<int> showImportDialog(
               return;
             }
             Navigator.pop(ctx);
-            imported = await app.importPayloads(payloads);
+            final result = await app.importPayloads(payloads);
+            imported = result.added;
+            skipped = result.skipped;
             messenger.showSnackBar(
-              SnackBar(content: Text(l.importedCount(imported))),
+              SnackBar(
+                content: Text(
+                  skipped > 0
+                      ? l.importedCountSkipped(imported, skipped)
+                      : l.importedCount(imported),
+                ),
+              ),
             );
           },
           child: Text(l.importAction),

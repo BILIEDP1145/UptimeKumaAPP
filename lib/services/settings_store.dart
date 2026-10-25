@@ -19,6 +19,8 @@ class PrefKeys {
   static const backgroundChecks = 'bg_checks';
   static const bgInterval = 'bg_interval_minutes';
   static const silentLogin = 'silent_login';
+  static const mutedMonitors = 'muted_monitors';
+  static const menuTrigger = 'menu_trigger';
   static const persistentNotification = 'persistent_notification';
   static const foregroundService = 'foreground_service';
   static const servers = 'servers_json';
@@ -135,6 +137,18 @@ class SettingsStore {
   bool get silentLogin => _prefs.getBool(PrefKeys.silentLogin) ?? true;
 
   set silentLogin(bool v) => _prefs.setBool(PrefKeys.silentLogin, v);
+
+  /// ids of monitors the user muted, grouped by instance: `{"serverId":[3,7]}`.
+  String? get mutedMonitorsJson => _prefs.getString(PrefKeys.mutedMonitors);
+
+  set mutedMonitorsJson(String? v) => v == null
+      ? _prefs.remove(PrefKeys.mutedMonitors)
+      : _prefs.setString(PrefKeys.mutedMonitors, v);
+
+  /// How the instance card menu is opened: `button` (⋯) or `longPress`.
+  String get menuTrigger => _prefs.getString(PrefKeys.menuTrigger) ?? 'button';
+
+  set menuTrigger(String v) => _prefs.setString(PrefKeys.menuTrigger, v);
 
   /// Keep a silent "monitoring" notification pinned in the shade.
   bool get persistentNotification =>

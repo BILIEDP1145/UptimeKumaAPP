@@ -383,6 +383,41 @@ class _AppearancePageState extends State<AppearancePage> {
           ),
           const SizedBox(height: 12),
 
+          // Instance menu trigger
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.menuTriggerTitle, style: context.txt.titleSmall),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text(l.menuTriggerButton),
+                      selected: app.menuTrigger == 'button',
+                      onSelected: (_) => app.setMenuTrigger('button'),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(l.menuTriggerLongPress),
+                      selected: app.menuTrigger == 'longPress',
+                      onSelected: (_) => app.setMenuTrigger('longPress'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l.menuTriggerBody,
+                  style: context.txt.labelSmall?.copyWith(
+                    color: tk.muted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Dashboard header
           AppCard(
             child: Column(

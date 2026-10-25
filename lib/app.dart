@@ -138,13 +138,19 @@ class _UptimeKumaAppState extends State<UptimeKumaApp>
   Future<void> _handleLink(String url) async {
     final payload = ShareCode.parse(url);
     if (payload == null) return;
-    final added = await widget.appState.importPayloads([payload]);
-    if (added == 0) return;
+    final result = await widget.appState.importPayloads([payload]);
+    if (result.added == 0 && result.skipped == 0) return;
     final context = _navigatorKey.currentContext;
     if (context == null || !context.mounted) return;
     final l = L10n.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l.importedCount(added))),
+      SnackBar(
+        content: Text(
+          result.skipped > 0
+              ? l.importedCountSkipped(result.added, result.skipped)
+              : l.importedCount(result.added),
+        ),
+      ),
     );
   }
 

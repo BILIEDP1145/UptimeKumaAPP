@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -178,6 +179,7 @@ class AppState extends ChangeNotifier {
     _userAgent = _store.userAgent ?? '';
     _nameClamp = _store.nameClamp;
     _showSla = _store.showSla;
+    _loadMuted();
     _flatGradients = _store.flatGradients;
     final up = _store.statusUpColor;
     final down = _store.statusDownColor;
@@ -417,12 +419,44 @@ class AppState extends ChangeNotifier {
     _store.serversJson = ServerConfig.encodeList(_servers);
   }
 
-  Future<void> addServer(ServerConfig server) async {
+  /// Returns false when an instance with the same host + status page already
+  /// exists. Duplicates look harmless in the list but double every alert.
+  Future<bool> addServer(ServerConfig server) async {
+    if (_servers.any((s) => s.dedupeKey == server.dedupeKey)) return false;
     _servers = [..._servers, server];
     _activeServerId ??= server.id;
     _persistServers();
     _store.activeServerId = _activeServerId;
     notifyListeners();
+    return true;
+  }
+
+  bool isDuplicate(ServerConfig server) =>
+      _servers.any((s) => s.id != server.id && s.dedupeKey == server.dedupeKey);
+
+  /// Drops every copy after the first of each host + status-page pair.
+  /// The active instance always survives.
+  Future<int> removeDuplicateServers() async {
+    final seen = <String>{};
+    final keep = <ServerConfig>[];
+    var removed = 0;
+    for (final server in _servers) {
+      final key = server.dedupeKey;
+      final isActive = server.id == _activeServerId;
+      if (seen.contains(key) && !isActive) {
+        removed++;
+        await CacheStore.instance.clearServer(server.id);
+        await CredentialStore.delete(server.id);
+        continue;
+      }
+      seen.add(key);
+      keep.add(server);
+    }
+    if (removed == 0) return 0;
+    _servers = keep;
+    _persistServers();
+    notifyListeners();
+    return removed;
   }
 
   Future<void> updateServer(ServerConfig server) async {
@@ -440,6 +474,64 @@ class AppState extends ChangeNotifier {
     _persistServers();
     await CacheStore.instance.clearServer(id);
     await CredentialStore.delete(id);
+    notifyListeners();
+  }
+
+  // Muted monitors ---------------------------------------------------------
+
+  Map<String, List<int>> _muted = {};
+
+  void _loadMuted() {
+    final raw = _store.mutedMonitorsJson;
+    if (raw == null || raw.isEmpty) {
+      _muted = {};
+      return;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        _muted = {
+          for (final entry in decoded.entries)
+            if (entry.value is List)
+              entry.key.toString(): (entry.value as List)
+                  .whereType<num>()
+                  .map((n) => n.toInt())
+                  .toList(),
+        };
+      }
+    } catch (_) {
+      _muted = {};
+    }
+  }
+
+  bool isMonitorMuted(String serverId, int monitorId) =>
+      _muted[serverId]?.contains(monitorId) ?? false;
+
+  Set<int> mutedFor(String serverId) =>
+      (_muted[serverId] ?? const <int>[]).toSet();
+
+  void setMonitorMuted(String serverId, int monitorId, bool muted) {
+    final current = (_muted[serverId] ?? <int>[]).toSet();
+    if (muted) {
+      current.add(monitorId);
+    } else {
+      current.remove(monitorId);
+    }
+    if (current.isEmpty) {
+      _muted.remove(serverId);
+    } else {
+      _muted[serverId] = current.toList();
+    }
+    _store.mutedMonitorsJson =
+        _muted.isEmpty ? null : jsonEncode(_muted.map((k, v) => MapEntry(k, v)));
+    notifyListeners();
+  }
+
+  /// How the instance menu opens: `button` or `longPress`.
+  String get menuTrigger => _store.menuTrigger;
+
+  Future<void> setMenuTrigger(String value) async {
+    _store.menuTrigger = value;
     notifyListeners();
   }
 
@@ -532,8 +624,11 @@ class AppState extends ChangeNotifier {
   }
 
   /// Imports decoded share strings. Returns how many instances were added.
-  Future<int> importPayloads(List<SharePayload> payloads) async {
+  Future<({int added, int skipped})> importPayloads(
+    List<SharePayload> payloads,
+  ) async {
     var added = 0;
+    var skipped = 0;
     for (final payload in payloads) {
       final collectionId = payload.isCollection
           ? 'col_${DateTime.now().millisecondsSinceEpoch}_$added'
@@ -545,16 +640,22 @@ class AppState extends ChangeNotifier {
                 collectionName: payload.collectionName,
               )
             : server;
+        // Same host + same status page = same instance. Importing it twice
+        // duplicates the board and fires every alert twice.
+        if (_servers.any((s) => s.dedupeKey == withCollection.dedupeKey)) {
+          skipped++;
+          continue;
+        }
         _servers = [..._servers, withCollection];
         added++;
       }
     }
-    if (added == 0) return 0;
+    if (added == 0) return (added: 0, skipped: skipped);
     _activeServerId ??= _servers.first.id;
     _persistServers();
     _store.activeServerId = _activeServerId;
     notifyListeners();
-    return added;
+    return (added: added, skipped: skipped);
   }
 
   /// Copies a user-picked image into app storage so it survives cache wipes

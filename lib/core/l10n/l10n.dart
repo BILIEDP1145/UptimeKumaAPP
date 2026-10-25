@@ -58,6 +58,27 @@ class L10n {
   String get importAction => _t('Import', '导入');
   String get pasteFromClipboard => _t('Paste', '粘贴');
   String get importInvalid => _t('Nothing importable in that text', '这段内容里没有可导入的配置');
+  String importedCountSkipped(int added, int skipped) => _t(
+        'Imported $added, skipped $skipped duplicate(s)',
+        '已导入 $added 个，跳过 $skipped 个重复实例',
+      );
+  String get duplicateExists => _t(
+        'That instance is already in the list',
+        '该实例已在列表中',
+      );
+  String get removeDuplicates => _t('Remove duplicates', '清理重复实例');
+  String removedDuplicates(int n) =>
+      _t('Removed $n duplicate(s)', '已清理 $n 个重复实例');
+  String get noDuplicates => _t('No duplicates found', '没有重复实例');
+  String get monitorNotify => _t('Send alerts', '接收该监控的告警');
+  String get menuTriggerTitle => _t('Instance menu', '实例菜单');
+  String get menuTriggerButton => _t('⋯ button', '三点按钮');
+  String get menuTriggerLongPress => _t('Long press', '长按卡片');
+  String get menuTriggerBody => _t(
+        'Both open the same menu — pick whichever feels natural, they never '
+            'appear together.',
+        '两种方式打开同一个菜单，二选一即可，不会同时出现。',
+      );
   String importedCount(int n) => _t('Imported $n instance(s)', '已导入 $n 个实例');
   String get exportConfig => _t('Export config', '导出配置');
   String get exportCollection => _t('Export collection', '导出集合');

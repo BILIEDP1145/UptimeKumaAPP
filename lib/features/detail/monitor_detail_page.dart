@@ -63,6 +63,31 @@ class MonitorDetailPage extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.fromLTRB(tk.pagePadding.left, 0, tk.pagePadding.right, 28),
         children: [
+          // Per-monitor alert switch
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: SwitchListTile(
+              value: !app.isMonitorMuted(app.activeServerId ?? '', monitor.id),
+              onChanged: (v) => app.setMonitorMuted(
+                app.activeServerId ?? '',
+                monitor.id,
+                !v,
+              ),
+              secondary: Icon(
+                app.isMonitorMuted(app.activeServerId ?? '', monitor.id)
+                    ? Icons.notifications_off_outlined
+                    : Icons.notifications_active_outlined,
+                size: 19,
+                color: tk.accentInk,
+              ),
+              title: Text(
+                l.monitorNotify,
+                style: context.txt.bodySmall?.copyWith(color: tk.textStrong),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Hero status
           AppCard(
             color: status.softColor(tk).withValues(alpha: context.isDark ? 0.18 : 0.09),

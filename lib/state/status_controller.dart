@@ -253,6 +253,7 @@ class StatusController extends ChangeNotifier {
     final l10n = L10n(_app.localeOverride ?? const Locale('zh'));
     final sound = _app.sound;
     final settings = _app.store;
+    final serverId = _server?.id ?? '';
 
     for (final monitor in fresh.allMonitors) {
       final status = fresh.statusOf(monitor.id);
@@ -276,7 +277,9 @@ class StatusController extends ChangeNotifier {
       if (status == MonitorStatus.down) {
         final since = downHeartbeat ?? DateTime.now();
         _downSince[monitor.id] = since;
-        if (settings.notificationsEnabled && settings.notifyOnDown) {
+        if (settings.notificationsEnabled &&
+            settings.notifyOnDown &&
+            !_app.isMonitorMuted(serverId, monitor.id)) {
           unawaited(NotificationService.instance.showFault(
             l10n: l10n,
             monitor: monitor,
@@ -291,7 +294,9 @@ class StatusController extends ChangeNotifier {
           (status == MonitorStatus.up || status == MonitorStatus.maintenance)) {
         final since = _downSince.remove(monitor.id) ?? downHeartbeat;
         final downtime = since == null ? null : _humanDuration(DateTime.now().difference(since));
-        if (settings.notificationsEnabled && settings.notifyOnUp) {
+        if (settings.notificationsEnabled &&
+            settings.notifyOnUp &&
+            !_app.isMonitorMuted(serverId, monitor.id)) {
           unawaited(NotificationService.instance.showRecovery(
             l10n: l10n,
             monitor: monitor,

@@ -227,7 +227,16 @@ class _ServerEditPageState extends State<ServerEditPage> {
     if (_isEdit) {
       await app.updateServer(draft);
     } else {
-      await app.addServer(draft);
+      final added = await app.addServer(draft);
+      if (!added) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _feedbackOk = false;
+          _feedback = L10n.of(context).duplicateExists;
+        });
+        return;
+      }
       await app.setActiveServer(draft.id);
     }
     // Keep the password for silent re-authentication — or drop it when the

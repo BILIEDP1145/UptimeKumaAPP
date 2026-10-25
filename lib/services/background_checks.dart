@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Locale, Color;
 
@@ -204,6 +205,7 @@ class BackgroundChecks {
 
     final previous = await CacheStore.instance.readStatusMap(server.id);
     final isFirstRun = previous.isEmpty;
+    final muted = _mutedFor(store, server.id);
 
     final next = <int, int>{};
     final now = DateTime.now();
@@ -216,6 +218,8 @@ class BackgroundChecks {
       final prev = previous[monitor.id];
       // Never fire on a cold start where we have no baseline yet.
       if (isFirstRun || prev == null || prev == status.code) continue;
+
+      if (muted.contains(monitor.id)) continue;
 
       if (status == MonitorStatus.down && store.notifyOnDown) {
         final since = _firstDownTime(snapshot, monitor.id) ?? now;
@@ -253,6 +257,21 @@ class BackgroundChecks {
 
     await CacheStore.instance.writeStatusMap(server.id, next);
     await CacheStore.instance.writeSnapshot(server.id, snapshot);
+  }
+
+  /// Muted monitor ids for one instance, read from the shared preference blob.
+  static Set<int> _mutedFor(SettingsStore store, String serverId) {
+    final raw = store.mutedMonitorsJson;
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      final list = decoded[serverId];
+      if (list is! List) return const {};
+      return list.whereType<num>().map((n) => n.toInt()).toSet();
+    } catch (_) {
+      return const {};
+    }
   }
 
   static Future<void> _notify({
