@@ -309,7 +309,14 @@ class ServersPage extends StatelessWidget {
     final l = L10n.of(context);
     final tk = context.tk;
     final existing = app.collections;
-    final servers = app.servers;
+    // Same rule as the single-entry action: collection members are not offered.
+    final servers = app.servers.where((s) => !s.inCollection).toList();
+    if (servers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.noFreeInstances)),
+      );
+      return;
+    }
     final custom = TextEditingController();
     final selected = <String>{};
     String? chosen = existing.isEmpty ? _newCollectionKey : existing.first.name;
@@ -774,16 +781,19 @@ List<PopupMenuEntry<String>> _serverMenuItems(
         ],
       ),
     ),
-    PopupMenuItem(
-      value: 'join',
-      child: Row(
-        children: [
-          const Icon(Icons.layers_outlined, size: 17),
-          const SizedBox(width: 10),
-          Text(l.joinCollection),
-        ],
+    // An instance belongs to at most one collection: offering "join" to a
+    // member would just move it silently to another one.
+    if (!server.inCollection)
+      PopupMenuItem(
+        value: 'join',
+        child: Row(
+          children: [
+            const Icon(Icons.layers_outlined, size: 17),
+            const SizedBox(width: 10),
+            Text(l.joinCollection),
+          ],
+        ),
       ),
-    ),
     PopupMenuItem(
       value: 'bulk',
       child: Row(

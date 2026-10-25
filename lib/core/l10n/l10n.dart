@@ -90,6 +90,10 @@ class L10n {
   String get exportConfig => _t('Export config', '导出配置');
   String get exportCollection => _t('Export collection', '导出集合');
   String get exportedToClipboard => _t('Copied to clipboard', '已复制到剪贴板');
+  String get noFreeInstances => _t(
+        'Every instance already belongs to a collection',
+        '所有实例都已在集合中',
+      );
   String get bulkJoin => _t('Batch join collection', '批量加入集合');
   String get bulkJoinHint => _t(
         'Select the instances to move, then pick a collection.',
