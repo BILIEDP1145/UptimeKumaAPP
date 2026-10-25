@@ -48,8 +48,8 @@ class ServersPage extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(tk.style.isSharp ? 2 : 14),
         ),
-        icon: const Icon(Icons.add_rounded, size: 20),
-        label: Text(l.add, style: const TextStyle(fontWeight: FontWeight.w600)),
+        icon: const Icon(Icons.tune_rounded, size: 20),
+        label: Text(l.manage, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: CustomScrollView(
         slivers: [
@@ -152,7 +152,12 @@ class ServersPage extends StatelessWidget {
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: Text(l.myInstances, style: ctx.txt.titleSmall),
+              ),
               ListTile(
                 leading: Icon(Icons.add_link_rounded, color: tk.accentInk),
                 title: Text(l.addInstance),
@@ -928,11 +933,18 @@ Future<void> _showServerMenuAt(
     box.size.bottomRight(Offset.zero),
     ancestor: overlay,
   );
+  // Anchor to the right edge of the card. Centring the menu on the card (or
+  // left-aligning it) covers the instance name the user just pressed.
+  const menuWidth = 200.0;
+  final maxLeft = (overlay.size.width - menuWidth - 8).clamp(8.0, double.infinity);
+  final left = (bottomRight.dx - menuWidth).clamp(8.0, maxLeft);
   final value = await showMenu<String>(
     context: context,
-    position: RelativeRect.fromRect(
-      Rect.fromPoints(topLeft, bottomRight),
-      Offset.zero & overlay.size,
+    position: RelativeRect.fromLTRB(
+      left,
+      topLeft.dy,
+      overlay.size.width - left - menuWidth,
+      0,
     ),
     items: _serverMenuItems(context, server),
   );
